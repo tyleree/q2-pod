@@ -180,7 +180,10 @@ static void spot_take(void) {
     headset_manual();
     radio_stop(); /* Internet Radio's q2video holds the PCM */
     if (mclGetPlayStatus() != 1) player_stop(); /* 1 stopped */
-    dac_take();
+    char vol[5];
+    /* video_start's rule, Bluetooth and USB keep the DAC as stock left it, unless a jack is already
+     * g_headset_output and only the way is stale (a USB DAC pulled while hciplayer was stopped) */
+    if (!output_device(vol) || g_headset_output < 2) dac_take();
 }
 
 /* The output in use, which the card's aplay.sh reads each time librespot starts its sink: SPOT_OUT
@@ -193,6 +196,8 @@ static void spot_output(void) {
     const char *dev = output_device(vol);
     if (dev) tk_snprintf(out, sizeof out, "%s %s\n", dev, vol);
     if (!strcmp(out, sp.out)) return;
+    /* back to the headphone DAC mid-play: readied once for the sink's restart there */
+    if (!dev && sp.out[0] && sp.playing) dac_take();
     memcpy(sp.out, out, sizeof out);
     void *f = dev ? fopen(SPOT_OUT ".tmp", "w") : 0;
     if (f) fwrite(out, 1, strlen(out), f), fclose(f), rename(SPOT_OUT ".tmp", SPOT_OUT);

@@ -7485,9 +7485,29 @@ assert take[1][1:]==(1,2) and take[3][1]==0 and take[4][1:]==(37,1)
 assert ('reset_poweroptions_timer',1,1,0) in [c[:4] for c in m.calls] and m.get(syms['g_dacoff_time'])==0
 m.play=1; m.word(syms['g_dacoff_time'],3); names=m.poll()
 assert 'config_outputchannel' not in names and 'reset_poweroptions_timer' in names and m.get(syms['g_dacoff_time'])==0
-# Bluetooth's way is left alone: a DAC check_dacoff_state powered off is only powered on.
+# On the DAC's way with g_headset_output 2 and up, a DAC check_dacoff_state powered off is only
+# powered on.
 m.state('paused'); m.poll(); m.byte(syms['g_headset_output'],2); m.word(syms['g_dacoff_time'],0xffffffff); m.state('playing'); m.poll()
 assert 'config_outputchannel' not in [c[0] for c in m.calls] and ('mclSetDacPwr',1) in [c[:2] for c in m.calls]; passed()
+# Bluetooth and a USB DAC play through the sink, so a cast from the phone (g_dacoff_time -1, as stock's
+# config_outputchannel left it) leaves the DAC off, as Videos does; the timers are still held.
+for way,out in ((1,2),(2,3)):
+    b=SpotMachine({BIN:bytearray()}); spot_open(b,stream_page(b)); b.way=way; b.play=3
+    b.byte(syms['g_headset_output'],out); b.word(syms['g_dacoff_time'],0xffffffff); b.state('playing'); names=b.poll()
+    assert not {'mclSetDacPwr','config_outputchannel','mclSetPcmMode','mclSetMute','device_set_volume'}&set(names)
+    assert 'player_stop' in names and ('reset_poweroptions_timer',1,1,0) in [c[:4] for c in b.calls]
+    assert b.get(syms['g_dacoff_time'])==0xffffffff
+    # The output lost mid-play (stock's config_outputchannel(jack, 3)): the jack is readied once for the
+    # sink's restart there.
+    b.way=0; b.byte(syms['g_headset_output'],0); names=b.poll()
+    assert ('config_outputchannel',0,2) in [c[:3] for c in b.calls] and 'mclSetPcmMode' in names
+    assert 'config_outputchannel' not in b.poll()
+passed()
+# A USB DAC pulled while hciplayer was stopped leaves the way at 2 with a jack as g_headset_output: a cast
+# readies the jack, which also puts the way back.
+b=SpotMachine({BIN:bytearray()}); spot_open(b,stream_page(b)); b.way=2; b.play=3
+b.byte(syms['g_headset_output'],0); b.word(syms['g_dacoff_time'],0xffffffff); b.state('playing'); b.poll()
+assert ('config_outputchannel',0,2) in [c[:3] for c in b.calls]; passed()
 # The card's aplay.sh plays where Videos would: no SPOT_OUT on the headphone DAC; Bluetooth's
 # plug:bluealsa and the volume, rewritten when it changes, which a running q2video sink also gets.
 OUT='/tmp/q2-librespot.out'; assert OUT not in m.files
