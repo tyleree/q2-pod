@@ -53,6 +53,23 @@
 </p>
 </details>
 
+## Card themes and Q2 Theme Studio
+
+> [!NOTE]
+> This is a test build on [tyleree/q2-pod](https://github.com/tyleree/q2-pod), not an official Q2 Pod release. It hasn't been tested on a real Q2 yet, so back up anything on the card you can't lose. Report bugs on [this fork's issues](https://github.com/tyleree/q2-pod/issues).
+
+Change how Q2 Pod looks and flip EQ presets while a song plays, with a Windows app that saves to the card.
+
+- **EQ on Now Playing:** tap the EQ line under the album for the next preset.
+- **EQ on Home:** open the new EQ row and turn the wheel.
+- **Pinned presets:** star the ones you want to flip through, from 8,850 AutoEq presets or your own.
+- **Right panel on Home:** cycle your own images, GIFs and album covers, with Home set to Split.
+- **Themes:** background and accent colours, moving, hiding and resizing, new words for Home's rows, and Home's row height and card size.
+
+**To try it:** download `update.tar` and `Q2-Theme-Studio.exe` from the [test release](https://github.com/tyleree/q2-pod/releases/tag/card-themes-test-1). Install `update.tar` as in [Install](#install), then run the app, make a theme and press **Save to Q2**. To go back, install the [latest official release](https://github.com/DiamondBond/q2-pod/releases/latest) the same way.
+
+More: [Q2 Theme Studio](tools/theme-studio/README.md) · [how themes work](docs/themes.md)
+
 ## Install
 
 **Requirements:** a Q2 with a microSD card, a USB-C cable and a computer with internet.
@@ -119,7 +136,7 @@ To keep a folder out of Songs, Albums, Artists, Coverflow and library shuffle, p
 
 - **For users:** [User guide](https://github.com/DiamondBond/q2-pod/releases/latest/download/Q2-Pod-User-Guide.pdf) · [Setup](docs/setup.md) · [Changelog](docs/changelog.md)
 - **Library folder markers:** [Hide folders while keeping playlists](docs/discovery.md)
-- **For developers:** [Building](docs/building.md) · [Releasing](docs/releasing.md) · [Internals](docs/internals.md) · [Remote control (dev builds)](docs/remote.md)
+- **For developers:** [Building](docs/building.md) · [Releasing](docs/releasing.md) · [Internals](docs/internals.md) · [Card themes](docs/themes.md) · [Remote control (dev builds)](docs/remote.md)
 
 ## License
 
