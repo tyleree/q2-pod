@@ -969,12 +969,9 @@ static void vortex_paint(void *canvas, unsigned tone) {
 #define FAN 20     /* a face-up card's label showing under the next */
 #define FAN_DOWN 6
 
-/* A grey v (0 to 255) that Light Mode's flip (ui_ink) leaves at v: a card is paper-white in either
+/* A grey v (0 to 255) that the page's flip (ui_ink) leaves at v: a card is paper-white in either
  * mode, its black suits black. */
-static unsigned unflipped(unsigned v) {
-    if (ipod_light()) v = v < LIGHT_INK ? 255 : (LIGHT_PAPER - v) * 255 / (LIGHT_PAPER - LIGHT_INK);
-    return v * 0x010101u;
-}
+static unsigned unflipped(unsigned v) { return ui_unflip(v) * 0x010101u; }
 
 /* A rounded card: face down in the tone, darker inside a border when nothing covers it, or rank and
  * suit at the top in red or black, its suit large below when nothing covers it. */

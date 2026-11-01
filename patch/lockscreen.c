@@ -256,6 +256,7 @@ int lockscreen_init(void *win, void *ctx) {
         widget_on(img, EVT_DESTROY, forget, img);
     }
     if (ringnav_lock_clock()) big_clock(win);
+    theme_apply(win, "saverscreen_page");
     return result;
 }
 

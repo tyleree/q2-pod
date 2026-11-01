@@ -375,6 +375,285 @@ static int apply(int on) {
     return 1;
 }
 
+/* The EQ lists: Now Playing's (navigation.c qm_open) and Home's page, where a preset plays as it's
+ * reached, with no Apply. Pinned presets come first, in Q2 Theme Studio's order, then the saved ones,
+ * then the card's /EQ files not saved yet. Picking one of those imports it, as nothing imports the
+ * folder whole: it can hold thousands of files, more than /mnt/data has room for.
+ * ponytail: QUICK_ROWS in all; past that, Import as ever. */
+#define PEQ_PINS PEQ_ROOT "/mnt/mmc/Q2Pod/eq-pins.txt"
+#define PINS_MAX 8192
+#define QUICK_ROWS 64
+#define FLIP_SETTLE_MS 150
+static struct {
+    char (*names)[256];
+    unsigned char card[QUICK_ROWS]; /* not saved yet: it's on the card alone */
+    int count, pinned;
+} quick;
+
+static int quick_has(const char *name, int n) {
+    for (int k = 0; k < quick.count; ++k)
+        if (!strncmp(quick.names[k], name, (unsigned)n) && !quick.names[k][n]) return 1;
+    return 0;
+}
+
+static void quick_add(const char *name, int n, int card) {
+    if (quick.count == QUICK_ROWS || quick_has(name, n)) return;
+    quick.card[quick.count] = (unsigned char)card;
+    snprintf(quick.names[quick.count++], sizeof *quick.names, "%.*s", n, name);
+}
+
+/* eq-pins.txt: q2eqpins 1, then a preset's name a line. A name no longer here is skipped. */
+static void quick_pins(void) {
+    static const char head[] = "q2eqpins 1\n";
+    unsigned size = 0, at = sizeof head - 1;
+    char *text = read_all(PEQ_PINS, PINS_MAX, &size), path[600];
+    if (!text || size < at || memcmp(text, head, at)) {
+        free(text);
+        return;
+    }
+    while (at < size) {
+        char *name = text + at;
+        int n = 0, plain = 1;
+        for (; at + (unsigned)n < size && name[n] != '\n'; ++n) plain &= name[n] != '/';
+        at += (unsigned)n + 1;
+        if (n && name[n - 1] == '\r') --n;
+        name[n] = 0;
+        if (!n || n > 200 || !plain) continue;
+        snprintf(path, sizeof path, PEQ_SAVED "/%s.peq", name);
+        int saved = !access(path, 0);
+        snprintf(path, sizeof path, PEQ_IMPORT "/%s.txt", name);
+        if (saved || !access(path, 0)) quick_add(name, n, !saved);
+    }
+    free(text);
+}
+
+/* The list's rows, after its Off; 0 with no preset, or no memory for the names. */
+int peq_quick_open(void) {
+    if (!quick.names) quick.names = calloc(QUICK_ROWS, sizeof *quick.names);
+    quick.count = quick.pinned = 0;
+    if (!quick.names) return 0;
+    quick_pins();
+    quick.pinned = quick.count;
+    list_files(PEQ_SAVED, ".peq");
+    for (int i = 0; i < ui.count; ++i) quick_add(ui.names[i], (int)strlen(ui.names[i]) - 4, 0);
+    list_files(PEQ_IMPORT, ".txt");
+    for (int i = 0; i < ui.count; ++i) quick_add(ui.names[i], (int)strlen(ui.names[i]) - 4, 1);
+    return quick.count;
+}
+
+const char *peq_quick_name(int row) { return row >= 0 && row < quick.count ? quick.names[row] : ""; }
+
+/* The row playing: -1 Off, or -2 for an EQ the list doesn't hold. A restart forgets the name of what
+ * plays, so a saved preset is known by its bands, the name coming back for the EQ page too. */
+int peq_quick_on(void) {
+    eq_state s;
+    eq_load(&s);
+    if (!g_equalizer_flag || s.mode == EQ_OFF) return -1;
+    if (s.mode != EQ_PEQ) return -2;
+    for (int i = 0; i < quick.count; ++i) {
+        char path[600];
+        peq_preset p;
+        snprintf(path, sizeof path, PEQ_SAVED "/%s.peq", quick.names[i]);
+        if (quick.card[i] || !peq_load(path, &p) || p.count != s.peq.count || p.balance != s.peq.balance ||
+            memcmp(p.bands, s.peq.bands, (unsigned)p.count * sizeof *p.bands))
+            continue;
+        ui.draft = s.peq;
+        follow_auto();
+        ui.named = ui.draft;
+        snprintf(ui.applied, sizeof ui.applied, "%s", quick.names[i]);
+        return i;
+    }
+    return -2;
+}
+
+/* What's playing, as Now Playing's EQ row and Home's page say it. */
+const char *peq_quick_state(void) {
+    eq_state s;
+    eq_load(&s);
+    return !g_equalizer_flag || s.mode == EQ_OFF ? "Off"
+           : s.mode == EQ_3                      ? "Simple"
+           : ui.applied[0]                       ? ui.applied
+                                                 : "On";
+}
+
+static void chip_sync(void);
+
+/* A row of the list, -1 Off. A failure says why, and what plays stays. */
+static void quick_pick(int row) {
+    char path[600];
+    peq_preset p;
+    peq_error error;
+    if (row < 0) {
+        eq_state s;
+        eq_load(&s);
+        s.mode = EQ_OFF;
+        s.hold = 0;
+        if (!eq_commit(&s)) toast("EQ unchanged");
+        return;
+    }
+    if (row >= quick.count) return;
+    const char *name = quick.names[row];
+    if (!quick.card[row]) {
+        snprintf(path, sizeof path, PEQ_SAVED "/%s.peq", name);
+        if (!peq_load(path, &p)) {
+            toast("That preset can't be read");
+            return;
+        }
+    } else {
+        snprintf(path, sizeof path, PEQ_IMPORT "/%s.txt", name);
+        if (!peq_import_file(path, &p, &error)) {
+            snprintf(ui.status, sizeof ui.status, "Line %u: %s", error.line, error.reason);
+            toast(ui.status);
+            return;
+        }
+        mkdir(PEQ_SAVED, 0700);
+        snprintf(path, sizeof path, PEQ_SAVED "/%s.peq", name);
+        /* it plays even with no room left to keep it */
+        if (peq_save(path, &p, 0) == 1) quick.card[row] = 0;
+    }
+    load_draft(&p, name, (int)strlen(name));
+    if (!apply(1)) toast("EQ unchanged");
+}
+
+void peq_quick_pick(int row) {
+    quick_pick(row);
+    chip_sync();
+}
+
+/* Home's EQ page and Now Playing's EQ line: the wheel there, or a tap, flips through Off and the
+ * pinned presets, or with no pins the saved ones, and failing those the card's. The name changes at
+ * once and the sound when the flipping rests FLIP_SETTLE_MS, so a spin saves to /mnt/data once. The
+ * player ramps the change, so the song carries on. */
+static struct {
+    void *page, *name, *place, *chip; /* chip: Now Playing's line, while there is one */
+    unsigned timer, leave;
+    int row, rows; /* row 0 is Off */
+    int named;     /* a restart's EQ has its name back */
+} flip;
+
+static void flip_load(void) {
+    int all = peq_quick_open(), saved = 0, on = peq_quick_on();
+    for (int i = 0; i < all; ++i) saved += !quick.card[i];
+    int presets = quick.pinned ? quick.pinned : saved ? saved : all;
+    flip.rows = presets + 1;
+    /* saved rows follow the pins, and with no pins they lead, so these are the list's first rows */
+    flip.row = on >= 0 && on < presets ? on + 1 : 0;
+}
+
+static void chip_text(const char *name) {
+    char line[280];
+    if (!flip.chip) return;
+    snprintf(line, sizeof line, "EQ: %s", name);
+    widget_set_text_utf8(flip.chip, line);
+}
+
+static void chip_sync(void) {
+    if (flip.chip) chip_text(peq_quick_state());
+}
+
+static int flip_apply(const void *unused) {
+    flip.timer = 0;
+    peq_quick_pick(flip.row - 1);
+    return 0;
+}
+
+static void flip_show(const char *name) {
+    char place[32] = "";
+    chip_text(name);
+    if (!flip.page) return;
+    if (flip.row) snprintf(place, sizeof place, "%d of %d", flip.row, flip.rows - 1);
+    widget_set_text_utf8(flip.name, name);
+    widget_set_text_utf8(flip.place, place);
+}
+
+static void flip_step(int by) {
+    if (flip.rows < 2) return;
+    flip.row = (flip.row + by + flip.rows) % flip.rows;
+    flip_show(flip.row ? quick.names[flip.row - 1] : "Off");
+    rearm(&flip.timer, flip_apply, FLIP_SETTLE_MS);
+}
+
+static int flip_leave(const void *unused) {
+    flip.leave = 0;
+    navigator_back();
+    return 0;
+}
+
+static int flip_closed(void *page, void *event) {
+    if (flip.timer) {
+        stop_timer(&flip.timer);
+        flip_apply(0); /* the last turn plays */
+    }
+    stop_timer(&flip.leave);
+    flip.page = 0;
+    return 0;
+}
+
+static int flip_keyup(void *ctx, void *event) { return return_key(event, &flip.leave, flip_leave); }
+
+static int flip_touch(void *ctx, void *event) {
+    flip_step(I(event, EVENT_X) < 375 / 2 ? -1 : 1);
+    return 0;
+}
+
+int peq_flip_key(void *top, unsigned key) {
+    if (!flip.page || top != flip.page) return 0;
+    if (key == KEY_NEXT || key == KEY_PREV)
+        flip_step(key == KEY_NEXT ? 1 : -1);
+    else if (key == KEY_CENTER)
+        rearm(&flip.leave, flip_leave, 0);
+    else
+        return 0;
+    return 1;
+}
+
+int peq_flip_open(void *ctx, void *event) {
+    if (flip.page || !(flip.page = page_open("eqflip_page", flip_closed, flip_keyup))) return 0;
+    flip_load();
+    page_title(flip.page, "EQ");
+    flip.name = text(flip.page, 30, 96, 315, 64);
+    flip.place = text(flip.page, 30, 164, 315, 28);
+    void *hint = text(flip.page, 30, 224, 315, 24);
+    widget_set_prop_int(flip.name, "style:normal:font_size", 34);
+    widget_set_prop_int(flip.place, "style:normal:font_size", 18);
+    widget_set_prop_int(hint, "style:normal:font_size", 15);
+    widget_set_prop_int(flip.place, "style:normal:text_color", (int)0xffaaaaaau);
+    widget_set_prop_int(hint, "style:normal:text_color", (int)0xff8c8c8cu);
+    widget_set_text_utf8(hint, flip.rows > 1 ? "Turn the wheel to change" : "Add presets with Q2 Theme Studio");
+    widget_on(flip.page, EVT_POINTER_UP_BEFORE, flip_touch, 0);
+    flip_show(flip.rows < 2 ? "No presets yet" : flip.row ? quick.names[flip.row - 1] : peq_quick_state());
+    return 0;
+}
+
+/* A tap on Now Playing's line: the wheel there is the volume, so each tap is a turn. */
+static int chip_click(void *ctx, void *event) {
+    if (!flip.timer) flip_load();
+    if (flip.rows < 2) toast("Add presets with Q2 Theme Studio");
+    else flip_step(1);
+    return 0;
+}
+
+static int chip_gone(void *label, void *event) {
+    if (flip.chip == label) flip.chip = 0;
+    return 0;
+}
+
+/* ringnav_playing, for the iPod layout, which has the line. A restart forgets the name of what
+ * plays, and finding it reads the list, so that's once. */
+void peq_chip_bind(void *win) {
+    void *label = widget_lookup(win, "label_eqchip", 1), *tap = widget_lookup(win, "img_eqchip", 1);
+    if (!label || !tap) return;
+    flip.chip = label;
+    widget_on(tap, EVT_CLICK, chip_click, (void *)0);
+    widget_on(win, EVT_DESTROY, chip_gone, label);
+    if (!flip.named) {
+        flip.named = 1;
+        peq_quick_open();
+        peq_quick_on();
+    }
+    chip_sync();
+}
+
 static void load(eq_state *s);
 static void e3_show(void);
 

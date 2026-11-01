@@ -93,6 +93,7 @@ python3 test/ldac.py /tmp/q2-build         # shipped LDAC intermediate rates and
 python3 test/headset_io.py /tmp/q2-build   # real MIPS headset worker with simulated kernel I/O
 python3 test/bluealsa.py /tmp/q2-build     # the patched bluealsa's DROP paths against stock's, delayed encoder signal
 python3 test/alsa.py BUILD QEMU_MIPSEL     # ALSA startup lock regression (see internals.md)
+python3 test/theme.py BUILD                      # card themes: the parser under sanitizers, the card copy, the catalogue, the Studio's EQ against peq.c
 python3 test/ui_preview.py BEFORE AFTER OUT_DIR  # not a test: side-by-side iPod layout review sheets of two builds (or one build's two themes; --themes, ImageMagick)
 ```
 

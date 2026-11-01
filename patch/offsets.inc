@@ -233,6 +233,7 @@ static inline int arc_out(int r, int y) {
 #define DRIFT_TEXELS 218080 /* four panels: 4 x 188 x 290 */
 #define HOME_CLASSIC_ROW 369
 #define HOME_TOP 8 /* Minimal's decorative inset; Classic starts below the status bar. */
+#define HOME_ROW 39
 #define HOME_CHEVRON_SHIFT 15
 #define HOME_FULL_CHEVRON_SHIFT 10
 #define HOME_CLASSIC_TEXT_X 33
@@ -251,6 +252,7 @@ static inline int arc_out(int r, int y) {
 #define LIST_INTO_WHITE "file:///release/assets/default/raw/images/xx/list_into.png"
 #define LIGHT_PAPER 0xf4
 #define LIGHT_INK 0x16
+#define PAPER_LIGHT_MIN 125 /* a theme background's luma (of 255) from which it is a light page, with LIGHT_INK text */
 #define LIGHT_SPREAD 16
 #define LIGHT_CHROMA 40
 #define LIGHT_GLYPH 0xa0
@@ -337,6 +339,7 @@ static inline int arc_out(int r, int y) {
 #define LIST_VIEW_LAYOUT_SLOT 0x926930 /* its vtable slot (vtable 0x926928 + 8) */
 #define IMAGE_DRAW_SCALE_DOWN 5        /* "scale_down" in the stock draw type table @0x9272c0 */
 #define IMAGE_DRAW_CENTER 1            /* "center", the same table */
+#define IMAGE_DRAW_SCALE_AUTO 4        /* "scale_auto", the same table */
 /* iPod fast-scroll letter: the selected row's first character in white, LETTER_PX high, on a
  * LETTER_BOX square of the stock dark surface at LETTER_ALPHA, centred over the list. */
 #define LETTER_BOX 80

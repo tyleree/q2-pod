@@ -403,6 +403,11 @@ typedef struct {
     void *sel_w; /* the surface whose selection was last drawn */
     int sel_row, sel_y;
     void *paint_w, *sel_widget; /* paint-local color mapping, never stored on recycled widgets */
+    int theme_accent;           /* a card theme sets the accent: theme_row, ACCENT_THEME */
+    int theme_battery;          /* and the Battery row: st.battery, never written to config.ini */
+    int theme_paper, paper_light; /* a theme's background is on; paper_light: it is a light page */
+    int paper[3], ink[3];         /* where flip takes black and white, by channel: r, g, b */
+    unsigned theme_row[5];
     int sel_home;
     unsigned clock_key;   /* minute + 1 and format bit; 0 before the first, ~0 for --:-- */
     unsigned clock_timer; /* clock_due, at the next minute; 0 until the bar first paints */
@@ -1574,8 +1579,9 @@ int rockbox_available(void) {
 #define RGBA(c) (0xff000000u | ((c) & 255) << 16 | ((c) & 0xff00) | (c) >> 16)
 
 /* Light Mode (docs/ipod.md#light-mode): a neutral colour, its channels within LIGHT_SPREAD, flipped
- * per channel from black to LIGHT_PAPER and white to LIGHT_INK; any other hue, and the alpha byte,
- * as they are. Either byte order (color_t or 0xRRGGBB): the paper and ink are grey. */
+ * per channel from black to st.paper and white to st.ink; any other hue, and the alpha byte, as they
+ * are. Those are LIGHT_PAPER and LIGHT_INK, or a theme's background and the ink that reads on it
+ * (docs/themes.md), so flip has a version for each byte order. */
 static int neutral(unsigned c) {
     unsigned hi = 0, lo = 255;
     for (int s = 0; s < 24; s += 8) {
@@ -1585,19 +1591,41 @@ static int neutral(unsigned c) {
     }
     return hi - lo <= LIGHT_SPREAD;
 }
-static unsigned flip_v(unsigned v) { return LIGHT_PAPER - v * (LIGHT_PAPER - LIGHT_INK) / 255; }
-static unsigned flip(unsigned c) {
+static unsigned flip_v(int i, unsigned v) {
+    return (unsigned)(st.paper[i] + (int)v * (st.ink[i] - st.paper[i]) / 255);
+}
+static unsigned flip(unsigned c) { /* a color_t */
     if (!neutral(c)) return c;
     unsigned out = c & 0xff000000u;
-    for (int s = 0; s < 24; s += 8) out |= flip_v(c >> s & 255) << s;
+    for (int i = 0; i < 3; ++i) out |= flip_v(i, c >> 8 * i & 255) << 8 * i;
     return out;
 }
-static unsigned flip_if(int on, unsigned c) { return on ? flip(c) : c; }
+static unsigned flip_rgb(unsigned c) { /* a 0xRRGGBB */
+    if (!neutral(c)) return c;
+    unsigned out = 0;
+    for (int i = 0; i < 3; ++i) out |= flip_v(i, c >> (16 - 8 * i) & 255) << (16 - 8 * i);
+    return out;
+}
+static unsigned flip_if(int on, unsigned c) { return on ? flip_rgb(c) : c; }
 
 /* Every colour the payload draws passes here (peq.h wraps the canvas setters), as stock's pass
  * the style and image hooks: flipped in Light Mode. A clear colour stays 0: stock tests for it
  * (Now Playing's slider draws no dragger under a #00000000 border). */
-unsigned ui_ink(unsigned c) { return ipod_light() && c >> 24 ? flip(c) : c; }
+unsigned ui_ink(unsigned c) { return ipod_paper() && c >> 24 ? flip(c) : c; }
+
+/* The page's colour, a color_t without its alpha: what black maps to. */
+unsigned ui_paper(void) {
+    return ipod_paper() ? (unsigned)(st.paper[0] | st.paper[1] << 8 | st.paper[2] << 16) : 0;
+}
+
+/* The grey that flips nearest to v, for what looks the same on any page (Solitaire's cards). A
+ * coloured page has no exact one, so this goes by its average channel. */
+unsigned ui_unflip(unsigned v) {
+    if (!ipod_paper()) return v;
+    int paper = (st.paper[0] + st.paper[1] + st.paper[2]) / 3, ink = (st.ink[0] + st.ink[1] + st.ink[2]) / 3,
+        out = ((int)v - paper) * 255 / (ink - paper);
+    return (unsigned)(out < 0 ? 0 : out > 255 ? 255 : out);
+}
 
 /* The 0xRRGGBB j/n of the way from one color to another, per channel. Shared with visualizer.c. */
 unsigned mix(unsigned from, unsigned to, int j, int n) {
@@ -1616,6 +1644,12 @@ static const char *const accent_names[] = {
     "Accent: Tangerine", "Accent: Plum",    "Accent: Ivory", "Accent: Green"
 };
 _Static_assert(sizeof accent_names / sizeof *accent_names == ACCENT_N, "one name per ACCENTS row");
+/* accent() while a card theme sets the accent: its row, built from the one colour as offsets.inc
+ * builds the presets. Never saved, so the Accent setting stays as it was. */
+#define ACCENT_THEME ACCENT_N
+static const unsigned *accent_row(int preset) {
+    return preset == ACCENT_THEME ? st.theme_row : accents[preset];
+}
 /* The Display rows' settings, by ringnav_display's index: 0 Accent, 1 Home (0 Split, 1 Full,
  * 2 Carousel), 2 Battery, 3 Theme, 4 Shortcut, 5 Corners, 6 Light Mode, 7 Smart Awake, 8 Centred
  * Now Playing, 9 Click With Headphones (System settings, under Key Tone), 10 Single Press Scrub. */
@@ -1649,7 +1683,7 @@ int clock_night(void) {
 }
 static void np_fill(int scrub);
 static void light_apply(const int *tm) {
-    if (st.light != 2 || light_day(tm) == st.light_day) return;
+    if (st.light != 2 || st.theme_paper || light_day(tm) == st.light_day) return;
     st.light_day = !st.light_day;
     np_fill(0);
     image_manager_unload_all(image_manager());
@@ -1671,12 +1705,31 @@ static int accent(void) {
         st.scrub_single = config_value("IPOD", "SCRUBSINGLE", 2, 0);
         int buf[11];
         st.light_day = light_day(clock_now(buf));
+        unsigned rgb;
+        theme_load();
+        if (theme_accent(&rgb)) {
+            st.theme_row[0] = st.theme_row[1] = rgb;
+            st.theme_row[2] = st.theme_row[4] = mix(rgb, 0xffffff, 12, 100);
+            st.theme_row[3] = neutral(st.theme_row[2]) ? 0xd8d8d8 : st.theme_row[2]; /* Graphite's silver */
+            st.theme_accent = 1;
+        }
+        if (theme_battery() >= 0) st.battery = theme_battery(), st.theme_battery = 1;
+        for (int i = 0; i < 3; ++i) st.paper[i] = LIGHT_PAPER, st.ink[i] = LIGHT_INK;
+        if (theme_bg(&rgb)) {
+            st.theme_paper = 1;
+            st.paper_light = ((rgb >> 16) * 299 + (rgb >> 8 & 255) * 587 + (rgb & 255) * 114) / 1000 >=
+                             PAPER_LIGHT_MIN;
+            for (int i = 0; i < 3; ++i)
+                st.paper[i] = rgb >> (16 - 8 * i) & 255, st.ink[i] = st.paper_light ? LIGHT_INK : 255;
+        }
         st.settings_read = 1;
     }
-    return st.classic ? st.accent : st.minimal_accent;
+    return st.theme_accent ? ACCENT_THEME : st.classic ? st.accent : st.minimal_accent;
 }
 /* 1 while Minimal draws its own accent: the off-white card with dark ink. */
-static int minimal_card(void) { return !ipod_classic() && st.minimal_accent == MINIMAL_ACCENT; }
+static int minimal_card(void) {
+    return !ipod_classic() && st.minimal_accent == MINIMAL_ACCENT && !st.theme_accent;
+}
 /* Shortcut with no key is Rockbox while the card has it, else Favorites: asked each time, as the
  * card may mount after the first read. */
 static int shortcut(void) {
@@ -1693,7 +1746,11 @@ int ipod_home(void) {
 }
 int ipod_light(void) {
     accent();
-    return st.light == 2 ? st.light_day : st.light;
+    return st.theme_paper ? st.paper_light : st.light == 2 ? st.light_day : st.light;
+}
+int ipod_paper(void) {
+    accent();
+    return st.theme_paper || ipod_light();
 }
 int ipod_battery(void) {
     accent();
@@ -1732,10 +1789,10 @@ enum { TONE_LIGHT = 2, TONE_RED = 3 }; /* columns of ACCENTS */
 /* Light Mode keeps a coloured accent's tones; a neutral one (Graphite, Ivory) takes its silver red
  * tone for both, which flips dark. Before flip. */
 static unsigned tone_of(const unsigned *a, int tone) {
-    return ipod_light() && neutral(a[0]) ? a[TONE_RED] : a[tone];
+    return ipod_light() && neutral(a[TONE_LIGHT]) ? a[TONE_RED] : a[tone];
 }
 unsigned accent_tone(int tone) {
-    return tone == TONE_LIGHT && minimal_card() ? MINIMAL_FILL : tone_of(accents[accent()], tone);
+    return tone == TONE_LIGHT && minimal_card() ? MINIMAL_FILL : tone_of(accent_row(accent()), tone);
 }
 
 /* A color_t (bytes r, g, b, a) that is stock red blended with a neutral, t * red + k * white per
@@ -1746,7 +1803,7 @@ unsigned accent_tone(int tone) {
  * part (k) becomes that share of glyph: white keeps a blend's light part as it is. With another
  * glyph, neutral pixels (the glyph itself) map too, so pass it only for an image that holds red.
  * Crimson is the identity. Light Mode (light) puts the red share over paper instead: a tint over
- * black becomes the same tint of tone over LIGHT_PAPER, its grey part flipped. */
+ * black becomes the same tint of tone over st.paper, its grey part flipped. */
 static unsigned red_map(unsigned c, unsigned tone, unsigned glyph, int light) {
     static const int red[3] = { STOCK_RED >> 16, STOCK_RED >> 8 & 255, STOCK_RED & 255 };
     const int sum = red[0] + red[1] + red[2];
@@ -1764,19 +1821,24 @@ static unsigned red_map(unsigned c, unsigned tone, unsigned glyph, int light) {
         int miss = ch[i] - (t * red[i] / 4096 + k);
         if (miss > RED_TOLERANCE || miss < -RED_TOLERANCE) return c;
         int v = t * (int)(tone >> (16 - 8 * i) & 255) / 4096 +
-                (light ? (t < 4096 ? 4096 - t : 0) * LIGHT_PAPER / 4096 -
-                             k * (LIGHT_PAPER - LIGHT_INK) / 255
+                (light ? (t < 4096 ? 4096 - t : 0) * st.paper[i] / 4096 +
+                             k * (st.ink[i] - st.paper[i]) / 255
                        : k * (int)(glyph >> (16 - 8 * i) & 255) / 255);
         out |= (unsigned)(v < 0 ? 0 : v > 255 ? 255 : v) << 8 * i;
     }
     return out;
 }
+/* red_map, but a theme's colour can itself read as a blend of stock red: it stays. */
+static unsigned accent_red(unsigned c, int preset, unsigned to, int light) {
+    if (preset == ACCENT_THEME && !((c ^ RGBA(to)) & 0xffffff)) return c;
+    return red_map(c, to, 0xffffff, light);
+}
 unsigned accent_map(unsigned c, int preset, int tone) {
-    if (ipod_light())
+    if (ipod_paper())
         return !(c >> 24) || neutral(c)
                    ? ui_ink(c)
-                   : red_map(c, flip(tone_of(accents[preset], tone)), 0xffffff, 1);
-    return preset == CRIMSON ? c : red_map(c, accents[preset][tone], 0xffffff, 0);
+                   : accent_red(c, preset, flip_rgb(tone_of(accent_row(preset), tone)), 1);
+    return preset == CRIMSON ? c : accent_red(c, preset, accent_row(preset)[tone], 0);
 }
 
 /* A pill's end radius on a list row (h tall, its card inset px from the row's left): h / 2, less
@@ -2075,15 +2137,19 @@ static void paint_caps(void *w, void *canvas) {
     }
     if (st.np_album && w == P(st.np_album, W_PARENT)) {
         void *a = st.np_album;
-        int old[4], clip[4];
-        if (!clip_within(canvas, old, clip, I(canvas, CANVAS_X) + I(a, W_X),
+        int old[4], clip[4], px = theme_font("playing_page", "label_ipod_album");
+        unsigned rgb = NP_ALBUM_RGB;
+        px = px ? px : NP_CAPS_PX;
+        theme_tint("playing_page", "label_ipod_album", &rgb);
+        if (!widget_get_visible(a) ||
+            !clip_within(canvas, old, clip, I(canvas, CANVAS_X) + I(a, W_X),
                          I(canvas, CANVAS_Y) + I(a, W_Y), I(a, W_W), I(a, W_H)))
             return;
         canvas_set_clip_rect(canvas, clip);
         int room = I(a, W_W) - NP_CAPS_INSET;
         st.np_over = draw_spaced(canvas, widget_get_text(a), I(a, W_X) + NP_CAPS_INSET - st.np_off,
-                                 I(a, W_Y) + (I(a, W_H) - NP_CAPS_PX) / 2, NP_CAPS_PX,
-                                 RGBA(NP_ALBUM_RGB), room + st.np_off) -
+                                 I(a, W_Y) + (I(a, W_H) - px) / 2, px,
+                                 RGBA(rgb), room + st.np_off) -
                      SUDO_TRACK - room;
         canvas_set_clip_rect(canvas, old);
         if (st.np_over > 0 && !st.np_marquee)
@@ -2092,10 +2158,11 @@ static void paint_caps(void *w, void *canvas) {
     }
     if (tk_strcmp(widget_get_type(w), "hscroll_label") || !coverflow_home_owns(w)) return;
     unsigned color = RGBA(SUDO_MUTED);
+    int px = theme_font("home_page", widget_get_prop_str(P(w, W_PARENT), "name", ""));
+    px = px ? px : HOME_CAPS_PX;
     for (void *p = w; p; p = P(p, W_PARENT))
         if (p == st.sel_widget) color = 0xffffffff;
-    draw_spaced(canvas, widget_get_text(w), 0, (I(w, W_H) - HOME_CAPS_PX) / 2, HOME_CAPS_PX, color,
-                I(w, W_W));
+    draw_spaced(canvas, widget_get_text(w), 0, (I(w, W_H) - px) / 2, px, color, I(w, W_W));
 }
 
 /* Load and settle the painted surface's selection, then draw it behind the rows: Minimal's card
@@ -2154,11 +2221,11 @@ static void paint_selection(void *w, void *canvas) {
     st.sel_widget = classic ? (void *)0 : home ? P(g_menu.at[i], W_PARENT) : g_menu.at[i];
     st.sel_home = home && !classic;
     /* Light Mode: ink on a coloured bar or card stays white (ringnav_style_color). */
-    st.sel_accent = !neutral(accents[accent()][0]) && !st.sel_home && !minimal_card()
+    st.sel_accent = !neutral(accent_row(accent())[0]) && !st.sel_home && !minimal_card()
                         ? (home ? P(g_menu.at[i], W_PARENT) : g_menu.at[i])
                         : (void *)0;
     if (classic && (!tile || g_menu.kind == 4)) {
-        const unsigned *a = accents[accent()];
+        const unsigned *a = accent_row(accent());
         /* Corners: Rounded makes a list row's bar a pill, inset like Minimal's card */
         rect_t bar = r;
         int pill = !tile && st.rounded ? pill_radius(g_menu.at[i], r.h, SEL_INSET) : 0;
@@ -2173,7 +2240,7 @@ static void paint_selection(void *w, void *canvas) {
         int in = grid ? TILE_INSET : square ? 0 : SEL_INSET, vertical = grid ? TILE_INSET : 0;
         rect_t card = { r.x + in, r.y + vertical, r.w - 2 * in, r.h - 2 * vertical };
         int radius = !st.rounded ? 0 : tile ? SEL_RADIUS : pill_radius(g_menu.at[i], card.h, in);
-        fill_box(canvas, &card, RGBA(minimal_card() ? MINIMAL_FILL : accents[accent()][0]), radius);
+        fill_box(canvas, &card, RGBA(minimal_card() ? MINIMAL_FILL : accent_row(accent())[0]), radius);
     }
     st.sel_w = w;
     st.sel_row = i;
@@ -2251,7 +2318,7 @@ static void paint_into(void *w, void *canvas) {
     rect_t clear = { x - (int)bitmap[0] / 2, y - (int)bitmap[1] / 4, (int)bitmap[0],
                      (int)bitmap[1] / 2 };
     unsigned fill = (unsigned)I(P(canvas, CANVAS_LCD), LCD_FILL_COLOR);
-    fill_box(canvas, &clear, RGBA(accents[accent()][0]), 0);
+    fill_box(canvas, &clear, RGBA(accent_row(accent())[0]), 0);
     canvas_draw_icon(canvas, bitmap, x, y);
     stock_canvas_set_fill_color(canvas, fill);
 }
@@ -3422,6 +3489,7 @@ static void bar_sync(void *bar) {
  * dark or not, so a wake never shows stock's hidden icon; the badge and battery wait for paint. */
 int ringnav_showface(void *bar) {
     int result = stock_showface_trampoline(bar);
+    theme_apply(bar, "system_bar"); /* before a layout or paint sees what stock showed */
     bar_state_sync(bar); /* no I/O, and a relayout waits for a paint */
     return result;
 }
@@ -3562,7 +3630,10 @@ static void np_theme(void) {
     for (unsigned i = 0; st.np_slider && i < sizeof radius / sizeof *radius; ++i)
         widget_set_prop_int(st.np_slider, radius[i], h / 2);
     if (st.np_slider) widget_set_prop_int(st.np_slider, "bar_size", h);
-    if (glyph) widget_set_opacity(glyph, ipod_classic() ? 255 : 0);
+    if (glyph)
+        widget_set_opacity(glyph, ipod_classic() && (st.np_centred || !theme_hidden("playing_page", "img_cover"))
+                                      ? 255
+                                      : 0);
     /* Minimal: the album is paint_caps' capitals. */
     if (st.np_album) widget_set_opacity(st.np_album, ipod_classic() ? 255 : 0);
 }
@@ -3983,12 +4054,27 @@ static int np_lyric_touch(void *ctx, void *event) {
 
 /* playing_page_init: stock builds the page and starts its 250 ms timer, then the iPod labels bind.
  */
+/* A card theme's Now Playing, the iPod layout's only: rate_bind's badge and the visualizer take their
+ * places from what this leaves, and the art's pause glyph and spinner stay centred on the art. */
+void np_rules(void *win) {
+    if (!theme_on() || (accent(), st.np_centred)) return;
+    theme_apply(win, "playing_page");
+    void *art = widget_lookup(win, "img_cover", 1), *glyph = widget_lookup(win, "img_playstate", 1),
+         *wait = widget_lookup(win, "image_wait", 1), *view = widget_lookup(win, "slide_view_view", 1);
+    if (!art) return;
+    int x = I(art, W_X) + I(art, W_W) / 2, y = I(art, W_Y) + I(art, W_H) / 2;
+    if (glyph) widget_move(glyph, x - I(glyph, W_W) / 2, y - I(glyph, W_H) / 2);
+    if (wait && view) widget_move(wait, x - I(wait, W_W) / 2, I(view, W_Y) + y - I(wait, W_H) / 2);
+}
+
 int ringnav_playing(void *win, void *ctx) {
     if (st.np_full)
         np_full(0); /* another Now Playing: the last one's lyrics back in their column */
     int result = stock_playing_trampoline(win, ctx);
     if (!win) return result;
+    np_rules(win);
     rate_bind(win);
+    peq_chip_bind(win);
     st.np_win = win;
     st.np_pos = widget_lookup(win, "label_ipod_pos", 1);
     st.np_album = widget_lookup(win, "label_ipod_album", 1);
@@ -4192,10 +4278,11 @@ static void vol_paint(void *top, void *canvas) {
     int np = widget_get_child(wm, n - 2) == st.np_win && st.np_slider && st.np_elapsed;
     rect_t area, bar, text;
     if (np) {
-        void *slider = st.np_slider, *times = st.np_elapsed;
+        void *slider = st.np_slider, *times = st.np_elapsed, *remain = st.np_remain;
         int dy = I(st.np_win, W_Y) - I(top, W_Y), y = dy + I(slider, W_Y),
-            bh = widget_get_prop_int(slider, "bar_size", 8);
-        area = (rect_t){ 0, y, I(st.np_win, W_W), dy + I(times, W_Y) + I(times, W_H) - y };
+            bh = widget_get_prop_int(slider, "bar_size", 8), low = I(times, W_Y) + I(times, W_H);
+        if (remain && I(remain, W_Y) + I(remain, W_H) > low) low = I(remain, W_Y) + I(remain, W_H);
+        area = (rect_t){ 0, y, I(st.np_win, W_W), dy + low - y };
         bar = (rect_t){ I(slider, W_X), y + (I(slider, W_H) - bh) / 2, I(slider, W_W), bh };
         text = (rect_t){ 0, dy + I(times, W_Y), area.w, I(times, W_H) };
     } else {
@@ -4374,8 +4461,8 @@ int ringnav_paint_bg(void *w, void *canvas) {
     if (!w || P(w, W_PARENT) != wm) return result;
     if (w == bar && P(canvas, CANVAS_LCD)) {
         unsigned fill = (unsigned)I(P(canvas, CANVAS_LCD), LCD_FILL_COLOR);
-        /* Classic in Light Mode: an iPod's grey bar, flat (final colour) */
-        int grey = ipod_classic() && ipod_light();
+        /* Classic in Light Mode: an iPod's grey bar, flat (final colour); a theme's page goes under */
+        int grey = ipod_classic() && ipod_light() && !st.theme_paper;
         stock_canvas_set_fill_color(canvas, grey ? RGBA(LIGHT_BAR) : ui_ink(RGBA(BAR_COLOR)));
         canvas_fill_rect(canvas, 0, 0, I(w, W_W), I(w, W_H));
         stock_canvas_set_fill_color(canvas, fill);
@@ -4426,6 +4513,13 @@ unsigned *ringnav_style_color(unsigned *color, void *style, const char *name, un
      * blue selected_bg_color, which Light Mode keeps: it stays, not flipped to paper. */
     if (name && !tk_strcmp(name, "selected_text_color")) return color;
     if (st.paint_w && name && tk_str_end_with(name, "text_color")) {
+        void *own = theme_tints() ? window_of(st.paint_w) : (void *)0;
+        unsigned rgb;
+        if (own && theme_tint(widget_get_prop_str(own, "name", ""),
+                              widget_get_prop_str(st.paint_w, "name", ""), &rgb)) {
+            *color = (*color & 0xff000000u) | (RGBA(rgb) & 0xffffff); /* final, in every state */
+            return color;
+        }
         if (!ipod_classic() && (st.paint_w == st.bar_idle || coverflow_home_owns(st.paint_w))) {
             *color &= 0xffffff; /* paint_caps draws it */
             return color;
@@ -4437,7 +4531,7 @@ unsigned *ringnav_style_color(unsigned *color, void *style, const char *name, un
                 if (!widget_get_prop_bool(w, "enable", 1)) enabled = 0;
             *color = (*color & 0xff000000u) | (enabled ? 0xffffff : 0xaaaaaa);
         }
-        if (ipod_light() && painting_in(st.sel_accent)) return color;
+        if (ipod_paper() && painting_in(st.sel_accent)) return color;
         int selected = selected_ink();
         if (selected && (st.sel_home || minimal_card())) {
             unsigned alpha = *color & 0xff000000u;
@@ -4459,7 +4553,7 @@ unsigned *ringnav_style_color(unsigned *color, void *style, const char *name, un
             *color = (*color & 0xff000000u) | SUDO_MUTED;
     }
     int a = accent();
-    if (a == CRIMSON && !ipod_light()) return color;
+    if (a == CRIMSON && !ipod_paper()) return color;
     unsigned c = accent_map(*color, a, TONE_LIGHT);
     if (c != *color && name && tk_str_end_with(name, "text_color"))
         c = accent_map(*color, a, TONE_RED);
@@ -4547,9 +4641,9 @@ int ringnav_image_add(void *manager, const char *name, void *bitmap) {
     const char *s = name;
     int dark = s && tk_str_start_with(s, CONFIRM_IMAGE);
     int control = s && tk_str_start_with(s, DROPDOWN_IMAGE) && !tk_str_start_with(s, DROPDOWN_SUN);
-    int paper = ipod_light(); /* Light Mode: tone_of's tones, flipped as drawn */
-    unsigned tone = dark ? CONFIRM_SURFACE : flip_if(paper, tone_of(accents[preset], TONE_RED)),
-             glyph = 0xffffff, light = flip_if(paper, tone_of(accents[preset], TONE_LIGHT));
+    int paper = ipod_paper(); /* Light Mode, or a theme's page: tone_of's tones, flipped as drawn */
+    unsigned tone = dark ? CONFIRM_SURFACE : flip_if(paper, tone_of(accent_row(preset), TONE_RED)),
+             glyph = 0xffffff, light = flip_if(paper, tone_of(accent_row(preset), TONE_LIGHT));
     if (control && ((tone >> 16) * 299 + (tone >> 8 & 255) * 587 + (tone & 255) * 114) / 1000 >
                        GLYPH_LIGHT_MAX)
         glyph = CONFIRM_SURFACE;
@@ -4564,7 +4658,7 @@ int ringnav_image_add(void *manager, const char *name, void *bitmap) {
     if (s && !*s && tk_str_start_with(name, "img_") && tk_strcmp(name, "img_delete") &&
         tk_strcmp(name, "img_edit") && tk_strcmp(name, "img_morefolder") &&
         tk_strcmp(name, "img_path") && !dark && !ipod_classic())
-        tone = SUDO_MUTED;
+        tone = flip_if(st.theme_paper, SUDO_MUTED); /* its grey would match a grey page */
     /* Minimal: the settings icons' coloured discs all turn MINIMAL_CHEVRON, like list_into's ink
      * and stock's grey list discs. The Bluetooth rows' white marks (device, refresh) and
      * list_delete (paint_radio's) take list_into's ink too under Minimal's own accent, or they
@@ -4696,8 +4790,9 @@ int ringnav_image_add(void *manager, const char *name, void *bitmap) {
      * flips as the colours do. One with a grey or dark disc or plate (LIGHT_SURFACE) keeps its
      * white glyph, an image the accent mapped is final, and switch_off keeps its white knob as
      * switch_on does. Quick Settings' inactive discs (DROPDOWN_IMAGE, unmapped) flip whole: a
-     * light disc under a dark glyph, as the active ones stand out in the accent. Premultiplied
-     * pixels (bitmap_t flags @0xc) flip their straight colour. */
+     * light disc under a dark glyph, as the active ones stand out in the accent. A theme's dark page
+     * flips them all: white stays white, and a black plate would be a box on the coloured page.
+     * Premultiplied pixels (bitmap_t flags @0xc) flip their straight colour. */
     unsigned char *ink = paper && !mapped && format < 4 && s && !*s && tk_strcmp(name, "switch_off")
                              ? bitmap_lock_buffer_for_write(bitmap)
                              : (void *)0;
@@ -4717,11 +4812,11 @@ int ringnav_image_add(void *manager, const char *name, void *bitmap) {
                 solid += (premul ? (r * 299 + g * 587 + b * 114) / a * 255 / 1000
                                  : (r * 299 + g * 587 + b * 114) / 1000) < LIGHT_GLYPH;
             }
-        for (int y = 0; !hue && (control || solid * LIGHT_SURFACE < w * h) && y < h; ++y)
+        for (int y = 0; !hue && (control || !ipod_light() || solid * LIGHT_SURFACE < w * h) && y < h; ++y)
             for (unsigned char *p = ink + y * stride, *end = p + 4 * w; p < end; p += 4)
                 for (int c = 0, a = p[o[3]]; c < 3 && a; ++c)
-                    p[o[c]] = (unsigned char)(premul ? flip_v(p[o[c]] * 255u / a) * a / 255
-                                                     : flip_v(p[o[c]]));
+                    p[o[c]] = (unsigned char)(premul ? flip_v(c, p[o[c]] * 255u / a) * a / 255
+                                                     : flip_v(c, p[o[c]]));
         bitmap_unlock_buffer(bitmap);
     }
     return stock_image_trampoline(manager, name, bitmap);
@@ -4736,13 +4831,14 @@ static void setting_text(int i) {
                              *const light[] = { "Light Mode: Off", "Light Mode: On",
                                                 "Light Mode: Auto" };
     accent(); /* reads the settings */
-    const char *const names[] = { accent_names[st.classic ? st.accent : st.minimal_accent],
+    const char *const names[] = { st.theme_accent ? "Accent: Theme"
+                                                  : accent_names[st.classic ? st.accent : st.minimal_accent],
                                   home[st.home],
-                                  battery[st.battery],
+                                  st.theme_battery ? "Battery: Theme" : battery[st.battery],
                                   theme[st.classic],
                                   (const char *)0,
                                   (const char *)0,
-                                  light[st.light],
+                                  st.theme_paper ? "Light Mode: Theme" : light[st.light],
                                   (const char *)0,
                                   (const char *)0 };
     char shortcut[64];
@@ -4790,9 +4886,12 @@ static void setting_put(int *value, int v, const char *key) {
 }
 static void theme_preset(void) {
     int classic = st.classic, buf[11];
-    if (st.light != 2) setting_put(&st.light, classic, "LIGHT");
+    /* What a theme sets waits as it was, for when the theme goes. */
+    if (st.light != 2 && !st.theme_paper) setting_put(&st.light, classic, "LIGHT");
     st.light_day = light_day(clock_now(buf));
-    if (classic)
+    if (st.theme_accent)
+        ;
+    else if (classic)
         setting_put(&st.accent, 4, "ACCENT"); /* Cobalt */
     else
         setting_put(&st.minimal_accent, 0, "MINIMAL_ACCENT"); /* Graphite */
@@ -4802,6 +4901,10 @@ static void theme_preset(void) {
 
 static int setting_click(void *ctx, void *event) {
     int i = (int)(long)ctx, minimal = !i && !ipod_classic();
+    if ((!i && st.theme_accent) || (i == 2 && st.theme_battery) || (i == 6 && st.theme_paper)) {
+        toast("Set by your theme");
+        return 0;
+    }
     int *value = minimal ? &st.minimal_accent : setting_values[i];
     const char *key = minimal ? "MINIMAL_ACCENT" : setting_keys[i];
     /* Rockbox, Favorites, Shuffle, Rated Albums, Artists, Albums, Games */
@@ -5421,7 +5524,8 @@ enum {
     QA_QUEUE,
     QA_FOLDER,
     QA_CHAPTERS,
-    QA_MORE
+    QA_MORE,
+    QA_EQ
 };
 #define MCL(a) (*(volatile int *)(a))
 
@@ -6746,6 +6850,7 @@ static void rate_badge(void) {
     void *r = rate_track();
     int n = r ? rate_kept(0, listen_key(r)) : 0;
     if (n && !tk_strcmp(widget_get_prop_str(st.rate_fav, "image", ""), "play_fav")) n = 0;
+    if (!widget_get_visible(st.rate_fav)) n = 0; /* a card theme's hidden heart */
     /* each set repaints the badge, and this runs every 500 ms: only a change (AWTK's "text" is
      * a wide string widget_get_prop_str doesn't read) */
     if (st.rate_shown == n + 1) return;
@@ -8388,6 +8493,7 @@ int ringnav_playlist(void *win) {
 /* Deferred so the dialog is never closed under its own click dispatch. */
 static int qm_open(const void *unused);
 
+#define QM_CHOICE_EQ 4 /* st.qm_choice past Shuffle, Repeat and Group by: Now Playing's EQ list */
 static int qm_run(const void *unused) {
     st.qm_timer = 0;
     if (!st.qm_dialog) return 0;
@@ -8395,9 +8501,15 @@ static int qm_run(const void *unused) {
     void *r = qm_record();
     int a = st.qm_action, cls = st.qm_kind == QM_COVERFLOW ? 0xf001 : (int)st.qm_cls;
     unsigned aid = r ? qm_album_id(r) : 0; /* an album's own Favourites and Rate */
-    if (r && a >= 100) {
+    if (r && a >= 100 && st.qm_choice == QM_CHOICE_EQ) {
+        peq_quick_pick(a - 101);
+        st.qm_choice = 0;
+    } else if (r && a >= 100) {
         if (!playback_set(st.qm_choice - 1, a - 100)) toast("Queue unchanged");
         st.qm_choice = 0;
+    } else if (r && a == QA_EQ) {
+        st.qm_choice = QM_CHOICE_EQ;
+        qm_open(0);
     } else if (r && a == QA_CHAPTERS) {
         chapters_open(r);
     } else if (r && a == QA_QUEUE) {
@@ -8518,6 +8630,24 @@ static int qm_open(const void *unused) {
     widget_on(dialog, EVT_KEY_UP, qm_back, dialog);
     widget_on(back, EVT_CLICK, qm_back, dialog);
     widget_on(dialog, EVT_DESTROY, qm_gone, dialog);
+    if (st.qm_choice == QM_CHOICE_EQ) {
+        int count = peq_quick_open(), on = peq_quick_on();
+        widget_set_text_utf8(widget_lookup(dialog, "scrlabel_title", 1), "EQ");
+        widget_destroy_children(view);
+        for (int i = -1; i < count; ++i) { /* -1 is Off, the top row */
+            void *item = list_item_create(view, 0, (i + 1) * QM_ROW, 375, QM_ROW);
+            widget_use_style(item, "s_listitem_black");
+            void *label = hscroll_label_create(item, 30, 0, 310, QM_ROW);
+            widget_use_style(label, "s_scrlabel_white24l");
+            widget_set_text_utf8(label, i < 0 ? "Off" : peq_quick_name(i));
+            if (i == on) image_base_set_image(image_create(item, 340, 0, 24, QM_ROW), "select");
+            widget_on(item, EVT_CLICK, qm_pick, (void *)(long)(101 + i));
+        }
+        widget_set_prop_int(view, "virtual_h", (count + 1) * QM_ROW);
+        st.qm_dialog = dialog;
+        ringnav_select(view, on < -1 ? 0 : on + 1, count + 1);
+        return 0;
+    }
     if (st.qm_choice) {
         /* stock's play modes, its category named as Group by sets it (album or folder) */
         static const char *const shuffle[2][5] = {
@@ -8574,6 +8704,8 @@ static int qm_open(const void *unused) {
      * Go to is left out where its single-instance page is already open, or the album is the page.
      */
     unsigned char acts[20], n = 0;
+    /* Now Playing's first row is what plays: Centre on it switches EQ */
+    if (st.qm_kind == QM_PLAYING) acts[n++] = QA_EQ;
     /* Shuffle Albums/Folders only: skipping the group comes first */
     int group_first = st.qm_kind == QM_PLAYING && playback_option(0) >= 3;
     /* Rate (the heart's hold) follows Next/Previous album */
@@ -8633,14 +8765,16 @@ static int qm_open(const void *unused) {
                                         "View Queue",
                                         "Go to Folder",
                                         "Chapters",
-                                        "More…" };
-    char rated[32];
+                                        "More…",
+                                        "EQ" };
+    char rated[32], eq[80];
     /* stock sortselect row styles */
     for (int i = 0; i < n; ++i) {
         void *item = list_item_create(view, 0, i * QM_ROW, 375, QM_ROW);
         widget_use_style(item, "s_listitem_black");
         void *label = hscroll_label_create(item, 30, 0, 266, QM_ROW);
         widget_use_style(label, "s_scrlabel_white24l");
+        if (acts[i] == QA_EQ) tk_snprintf(eq, sizeof eq, "EQ: %s", peq_quick_state());
         if (acts[i] == QA_RATE) {
             int h = aid ? album_hearts : checkFavExist(r) ? 5 : rate_kept(0, listen_key(r));
             const char *row = aid ? "Rate Album" : "Rate";
@@ -8649,6 +8783,7 @@ static int qm_open(const void *unused) {
         }
         widget_set_text_utf8(label,
                              acts[i] == QA_RATE ? rated
+                             : acts[i] == QA_EQ ? eq
                              : acts[i] == QA_GROUP
                                  ? (playback_option(2) ? "Group by: Folder" : "Group by: Album")
                              : acts[i] == QA_NEXT_GROUP && playback_option(2) ? "Next Folder"
@@ -9226,7 +9361,7 @@ static unsigned jpeg_size(const unsigned char *b, unsigned n) {
 static void *logo_sync(void *unused) {
     unsigned n = 0, old_n;
     unsigned char *b = 0, *old = 0;
-    const char *err = "Boot logo must be a 320x375 JPEG";
+    const char *err = "Boot logo must be a 320x375 JPEG", *theme = theme_sync();
     if (access(LOGO_SRC, 0))
         unlink(LOGO_DST), err = 0;
     else if ((b = read_all(LOGO_SRC, LOGO_MAX, &n)) && jpeg_size(b, n) == (375u << 16 | 320)) {
@@ -9252,13 +9387,14 @@ static void *logo_sync(void *unused) {
             unlink(LOGO_DST ".tmp"), err = "Could not save boot logo";
     }
     free(b), free(old);
-    st.logo_err = err;
+    st.logo_err = err ? err : theme;
     st.logo_busy = 0;
     return 0;
 }
 static void logo_poll(void) {
     unsigned now = time_now_ms();
-    if (st.logo_err) toast(st.logo_err), st.logo_err = 0;
+    const char *said = st.logo_err;
+    if (said) st.logo_err = 0, toast(said); /* first: a toast's dialog polls here again */
     /* Mount edges (boot, USB storage's end) come lit; dark it keeps its edge for the first lit
      * poll. */
     if (!g_backlight_status || st.logo_busy || (st.logo_at && now - st.logo_at < CHARGE_POLL_MS))
@@ -9290,6 +9426,7 @@ static void power_poll(void) {
     cpu_poll();
     standby_poll();
     logo_poll();
+    theme_poll();
 }
 
 /* Home's Rockbox row (docs/boot.md#rockbox-from-home), bound by coverflow_home: a click leaves
@@ -10018,6 +10155,11 @@ int ringnav(void *ctx, void *event) {
     if (usable() && rate_key(window_manager_get_top_window(window_manager()), key)) return STOP;
     /* A game's keys, before stock's lock filter, media keys and screen-off double Centre */
     if (usable() && games_key(window_manager_get_top_window(window_manager()), key)) return STOP;
+    /* Home's EQ page: the wheel flips presets, ahead of stock's volume */
+    if (usable() && peq_flip_key(window_manager_get_top_window(window_manager()), key)) {
+        drop_input();
+        return STOP;
+    }
     /* Return or Centre closes quick settings, as its swipe up does (dialog_quit); stock leaves
      * Return to its Home button and Centre to turning the screen off. A held Return's release
      * goes to the stock filter, which consumes its latch (a hold may go Home from here). */

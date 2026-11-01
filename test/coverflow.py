@@ -50,7 +50,8 @@ deque_init _deque_push_back deque_pop_back
 deque_assign deque_destroy deque_size deque_at window_create widget_factory
 widget_factory_create_widget image_create hscroll_label_create set_hscroll_label_attribute
 slide_menu_set_value slide_menu_item_width list_view_create scroll_view_create list_item_create image_set_draw_type
-image_base_set_image widget_load_image widget_unload_image widget_set_name widget_use_style
+image_base_set_image widget_load_image widget_unload_image widget_set_name widget_use_style widget_set_prop_str
+gif_image_create gif_image_play gif_image_stop gif_image_set_loop
 widget_set_text_utf8 widget_restack widget_animator_prop_create widget_animator_prop_set_params widget_animator_start widget_set_visible widget_get_prop_int widget_set_prop_int
 widget_get_prop_str widget_on widget_destroy_children widget_invalidate_force
 widget_count_children widget_get_child widget_lookup widget_move_resize widget_get_visible
@@ -103,7 +104,23 @@ CREATE(image_create, "image") CREATE(list_view_create, "list_view")
 CREATE(hscroll_label_create, "hscroll_label")
 CREATE(scroll_view_create, "scroll_view") CREATE(list_item_create, "list_item")
 int image_set_draw_type(void *x, int t) { return 0; }
+int widget_set_prop_str(void *x, const char *k, const char *v) { return 0; }
+void *gif_image_create(void *p, int x, int y, int w, int h) { return 0; }
+int gif_image_play(void *x) { return 0; }
+int gif_image_stop(void *x) { return 0; }
+int gif_image_set_loop(void *x, unsigned n) { return 0; }
 int image_base_set_image(void *x, const char *s) { snprintf(W(x)->image, 600, "%s", s); return 0; }
+/* theme.c isn't built here, and no theme is on: test/patch.py runs Home's rows with one. */
+int theme_on(void) { return 0; }
+int theme_hidden(const char *page, const char *widget) { (void)page, (void)widget; return 0; }
+void theme_label(void *label, const char *page, const char *widget) { (void)label, (void)page, (void)widget; }
+int peq_flip_open(void *ctx, void *event) { (void)ctx, (void)event; return 0; }
+int theme_home_row(void) { return 0; }
+int theme_home_top(void) { return -1; }
+int theme_home_card(void) { return 0; }
+int theme_home_art(int *seconds) { *seconds = 0; return 0; }
+int theme_home_art_gif(unsigned turn) { (void)turn; return 0; }
+
 /* A zero-length "no art" marker does not decode. Every successful load is unloaded again and
    decodes to art_w x art_h (bitmap_t w @0, h @4). */
 static int loads, unloads, theme_placeholder;
@@ -204,6 +221,8 @@ int ipod_home(void) { return home_mode; }
 int ipod_classic(void) { return classic; }
 int bold_label(void *w, int was) { return was; } /* the font only: no geometry */
 int ipod_light(void) { return light; }
+static unsigned paper_colour; /* a theme's background, a color_t */
+unsigned ui_paper(void) { return paper_colour ? paper_colour : light ? LIGHT_PAPER * 0x010101u : 0; }
 int ipod_home_rockbox(void) { return 0; }
 const char *ipod_home_shortcut(void) { return "Rockbox"; }
 int home_shortcut_open(void *x, void *e) { return 0; }
@@ -593,6 +612,10 @@ static void renderer(void) {
     render(0, inner);
     assert(px(0, 0) == (0xff000000u | LIGHT_PAPER * 0x010101u) && px(CF_CX, CF_TOP + 80) == centre);
     light = 0;
+    paper_colour = 0x302010; /* a theme's: every channel its own */
+    render(0, inner);
+    assert(px(0, 0) == (0xff000000u | 0x302010) && px(CF_CX, CF_TOP + 80) == centre);
+    paper_colour = 0;
     render(0, inner);
     /* The reflection: CF_REFLECT rows under the cover, from CF_REFLECT_TOP of its brightness down
        to black, never brighter going down; nothing after it. */
@@ -844,11 +867,13 @@ static void depth(void) {
     /* Auto Light Mode refreshes a stationary frame and its composited placeholder in RAM. */
     *(int *)(raw + SLIDE_INDEX) = 3;
     theme_placeholder = 1;
-    for (int mode = 1; mode >= 0; --mode) {
-        light = mode;
+    static const int modes[] = { 2, 0, 1, 0 }; /* 2: a theme's paper; a change of light redraws */
+    for (unsigned i = 0; i < sizeof modes / sizeof *modes; ++i) {
+        light = modes[i] != 0;
+        paper_colour = modes[i] == 2 ? 0x302010 : 0;
         int before = locks;
         coverflow_paint(s, canvas);
-        unsigned paper = 0xff000000u | (mode ? LIGHT_PAPER * 0x010101u : 0);
+        unsigned paper = 0xff000000u | ui_paper();
         assert(shown[0] == paper && shown[(CF_TOP + 80) * CF_VIEW_W + CF_CX] == paper);
         assert(locks == before + 1 && frames == 1);
         before = locks;

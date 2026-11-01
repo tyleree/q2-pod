@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'">
+<title>Q2 Theme Studio</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  --bg: #1b1c1f;
+  --panel: #222327;
+  --raised: #2c2d32;
+  --raised-hover: #36373d;
+  --line: #36373c;
+  --line-strong: #4a4b52;
+  --text: #e8e8ea;
+  --muted: #a4a5ab;
+  --focus: #7db0ff;
+  --primary: #2f6fde;
+  --primary-hover: #3f7eea;
+  --warn: #f3c15f;
+  --warn-bg: #3a2f17;
+  --pick: #6ea8ff;
+  --s: 2;
+  --frame: 14px;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 14px; font-weight: 600; white-space: nowrap; }
+h2 { font-size: 13px; font-weight: 600; }
+button, input, select { font: inherit; color: inherit; }
+button, select, input[type=text], input[type=number] {
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  min-height: 30px;
+}
+button { padding: 4px 12px; cursor: default; white-space: nowrap; }
+button:hover:not(:disabled) { background: var(--raised-hover); }
+button:disabled { color: #6e6f76; border-color: var(--line); }
+button.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: var(--primary-hover); }
+button.primary:disabled { background: var(--raised); border-color: var(--line); color: #6e6f76; }
+button.quiet { background: none; border-color: transparent; color: var(--muted); padding: 4px 6px; }
+button.quiet:hover:not(:disabled) { background: var(--raised); color: var(--text); }
+input[type=text], input[type=number] { padding: 4px 8px; user-select: text; }
+input[type=text]:focus, input[type=number]:focus { background: #191a1d; }
+input[aria-invalid=true] { border-color: #d9705f; }
+select { padding: 4px 6px; }
+input[type=color] {
+  width: 38px; height: 30px; padding: 2px;
+  background: var(--raised); border: 1px solid var(--line-strong); border-radius: 4px;
+}
+input[type=checkbox] { accent-color: var(--primary); margin: 0; width: 16px; height: 16px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.muted { color: var(--muted); }
+.spacer { flex: 1; }
+
+/* Top bar */
+.topbar {
+  height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 14px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.name-field { display: flex; align-items: center; gap: 8px; margin-left: 22px; color: var(--muted); }
+.name-field input { width: 260px; color: var(--text); }
+.modes { display: flex; gap: 2px; margin-left: 14px; padding: 2px; background: var(--bg); border-radius: 6px; }
+.modes button { min-height: 28px; padding: 2px 16px; background: none; border-color: transparent; }
+.modes button[aria-selected=true] { background: var(--raised-hover); font-weight: 600; }
+
+/* Three columns */
+.layout { display: grid; grid-template-columns: 232px minmax(0, 1fr) 276px; height: calc(100vh - 52px); }
+
+/* Library */
+.library-view { height: calc(100vh - 52px); display: flex; flex-direction: column; gap: 12px; padding: 14px; }
+.library-head { display: flex; align-items: center; gap: 10px; }
+.library-head input { width: 280px; }
+.library-grid {
+  flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 12px; align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.lib-card {
+  display: flex; flex-direction: column; gap: 2px; padding: 8px; text-align: left; white-space: normal;
+  background: var(--panel); border-color: var(--line); border-radius: 8px;
+}
+.swatch {
+  height: 96px; margin-bottom: 6px; padding: 10px; border-radius: 6px; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 6px;
+  border: 1px solid rgba(255, 255, 255, .14); font: 13px Arial, "Liberation Sans", sans-serif;
+}
+.swatch i { display: block; width: 60%; height: 4px; border-radius: 2px; }
+.lib-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* EQ */
+.eq-drive { display: flex; gap: 6px; padding: 0 10px 8px; }
+.eq-drive select, .eq-drive input { flex: 1; min-width: 0; }
+.eq-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; }
+.eq-graph-wrap { position: relative; flex: 0 0 44%; min-height: 200px; margin: 0 12px; }
+#eqGraph { display: block; width: 100%; height: 100%; border: 1px solid var(--line); border-radius: 6px; touch-action: none; }
+#eqGraph.over-node { cursor: grab; }
+.eq-legend { position: absolute; top: 8px; right: 14px; display: flex; gap: 12px; font-size: 11px; color: var(--muted); }
+.eq-legend i { display: inline-block; width: 14px; height: 2px; margin-right: 5px; vertical-align: middle; }
+.eq-bands { flex: 1; min-height: 0; overflow-y: auto; margin: 0 12px; border: 1px solid var(--line); border-radius: 6px; }
+.eq-bands table { width: 100%; border-collapse: collapse; }
+.eq-bands th {
+  position: sticky; top: 0; z-index: 1; padding: 6px 6px; text-align: left; font-weight: 600;
+  color: var(--muted); background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.eq-bands td { padding: 3px 6px; }
+.eq-bands tr.selected td { background: var(--raised); }
+.eq-bands tr.is-off input[type=number] { color: var(--muted); }
+.eq-bands input[type=number] { width: 100%; min-width: 64px; }
+.eq-bands select { width: 100%; }
+.eq-bands select[data-field=type] { min-width: 96px; }
+.eq-bands select[data-field=channel] { min-width: 72px; }
+.eq-bands td:first-child { width: 30px; text-align: right; }
+.eq-bands td:last-child { width: 34px; text-align: right; }
+#eqEmpty { padding: 12px; text-align: center; }
+#eqIemList { flex: 2; }
+#eqPinList { flex: 0 1 auto; max-height: 24%; }
+.pin-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 2px; }
+.pin { flex: none; min-width: 24px; min-height: 24px; padding: 0 3px; }
+.pin[aria-pressed=true] { color: var(--warn); }
+.pin-name { flex: 1; min-width: 0; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#eqIemList .row-main { flex-direction: column; align-items: flex-start; gap: 0; }
+#eqIemList .label { max-width: 100%; white-space: nowrap; }
+.src { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 11px; color: var(--muted); }
+.path { font: 12px Consolas, monospace; user-select: text; word-break: break-all; }
+.left, .right { background: var(--panel); min-height: 0; }
+.left { border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+.right { border-left: 1px solid var(--line); overflow-y: auto; }
+
+/* Screens as tabs */
+.tabs { padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; border-bottom: 1px solid var(--line); }
+.tab {
+  display: flex; align-items: center; justify-content: space-between; text-align: left;
+  background: none; border-color: transparent; min-height: 32px; padding: 4px 8px;
+}
+.tab[aria-selected=true] { background: var(--raised-hover); font-weight: 600; }
+.tab .count {
+  font-size: 11px; font-weight: 400; color: var(--muted); min-width: 18px; text-align: right;
+}
+
+/* Items on the current screen */
+.list-head { padding: 12px 14px 6px; }
+.elements { flex: 1; min-height: 0; overflow-y: auto; padding: 0 6px 6px; }
+.row { display: flex; align-items: center; gap: 4px; border-radius: 4px; padding-right: 8px; }
+.row.selected { background: var(--raised-hover); }
+.row:hover:not(.selected) { background: var(--raised); }
+.row-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; text-align: left;
+  background: none !important; border-color: transparent; padding: 3px 8px; min-height: 30px;
+  overflow: hidden;
+}
+.row-main .label { overflow: hidden; text-overflow: ellipsis; }
+.row.child .row-main { padding-left: 24px; }
+.row.is-hidden .label { color: var(--muted); }
+.row.under-hidden .label { color: #76777e; }
+.flag { color: var(--warn); font-weight: 700; flex: none; }
+.note { font-size: 12px; color: var(--muted); }
+#pageNote { padding: 8px 14px; border-top: 1px solid var(--line); }
+#pageNote:empty { display: none; }
+.left-foot { padding: 10px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.left-foot button { padding: 4px 6px; font-size: 12px; }
+.about { grid-column: 1 / -1; font-size: 11px; color: var(--muted); padding: 2px 4px 0; }
+
+/* Preview */
+.centre { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 12px 0; }
+.check { display: flex; align-items: center; gap: 7px; color: var(--muted); }
+.stage-wrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.hint { padding: 0 12px 10px; text-align: center; color: var(--muted); font-size: 12px; min-height: 28px; }
+.device {
+  flex: none; padding: var(--frame); background: #2b2c30;
+  border: 1px solid #45464c; border-radius: calc(80px * var(--s) + var(--frame));
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+}
+.stage { position: relative; width: calc(375px * var(--s)); height: calc(320px * var(--s)); touch-action: none; }
+.stage:focus-visible { outline-offset: 5px; }
+.stage.by-pointer:focus-visible { outline: none; }
+.scaler {
+  position: absolute; left: 0; top: 0; width: 375px; height: 320px;
+  transform: scale(var(--s)); transform-origin: 0 0;
+  font-family: Arial, "Liberation Sans", Helvetica, sans-serif;
+}
+.content { position: absolute; inset: 0; background: #000; border-radius: 80px; overflow: hidden; color: #fff; }
+.overlay { position: absolute; inset: 0; }
+.w { position: absolute; }
+.t { display: flex; align-items: center; white-space: nowrap; overflow: hidden; line-height: 1; }
+.t.end { justify-content: flex-end; }
+.t.mid { justify-content: center; }
+.t.inset { padding-left: 2px; }
+.caps { letter-spacing: 2px; text-transform: uppercase; }
+.dim { position: absolute; inset: 0; opacity: .32; }
+.wallpaper {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(58% 70% at 30% 30%, #6b33d1 0%, transparent 72%),
+    radial-gradient(52% 62% at 80% 20%, #149eb2 0%, transparent 72%),
+    radial-gradient(54% 58% at 62% 78%, #cc3894 0%, transparent 72%),
+    linear-gradient(160deg, #0f0d38, #0a0c29 52%, #1a0f42);
+}
+.shade { position: absolute; inset: 0; background: rgba(0, 0, 0, .125); }
+.art {
+  background:
+    radial-gradient(34% 34% at 68% 30%, #ffe2a8 0%, #ffb36b 38%, transparent 72%),
+    radial-gradient(110% 60% at 20% 108%, #1a1040 0%, #2a1a5e 45%, transparent 75%),
+    radial-gradient(120% 50% at 90% 112%, #3a1760 0%, transparent 70%),
+    linear-gradient(170deg, #1d2b6e 0%, #7a3a8f 42%, #e0566a 68%, #f59a5a 100%);
+}
+.hit { position: absolute; }
+.hit:hover { outline: calc(1px / var(--s)) solid rgba(255, 255, 255, .45); }
+.hit.can-move { cursor: move; }
+.ghost {
+  position: absolute; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  outline: calc(1px / var(--s) * 1.5) dashed #a9aab2; outline-offset: calc(-1px / var(--s));
+  background: rgba(255, 255, 255, .05); color: #b9bac1; font: 11px/1.15 "Segoe UI", Arial, sans-serif;
+  text-align: center; padding: 1px 2px;
+}
+.sel { position: absolute; pointer-events: none; outline: calc(2px / var(--s)) solid var(--pick); }
+.dragging .sel { outline: calc(1px / var(--s)) solid rgba(255, 255, 255, .55); }
+.guide { position: absolute; pointer-events: none; outline: calc(1px / var(--s)) dashed rgba(255, 255, 255, .28); }
+.handle {
+  position: absolute; width: 11px; height: 11px; margin: -6px 0 0 -6px; cursor: nwse-resize;
+  background: var(--pick); border: calc(1px / var(--s)) solid #fff; border-radius: 2px;
+}
+
+/* Right side */
+.section { padding: 14px; border-bottom: 1px solid var(--line); }
+.section h2 { margin-bottom: 8px; }
+.stack > * + * { margin-top: 12px; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; min-height: 24px; }
+.field-title { display: block; color: var(--muted); margin-bottom: 4px; }
+.pair { display: flex; align-items: center; gap: 8px; }
+.pair label { display: flex; align-items: center; gap: 6px; }
+.pair input[type=number] { width: 72px; }
+.pair input[type=text] { width: 92px; }
+.pair input[type=range] { flex: 1; min-width: 0; }
+.image-list { display: flex; flex-direction: column; gap: 2px; }
+.image-row { display: flex; align-items: center; gap: 4px; min-height: 30px; border-radius: 4px; }
+.image-row.selected { background: var(--raised-hover); }
+.image-row .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.image-row button { flex: none; min-height: 24px; padding: 0 6px; }
+.thumb { flex: none; width: 26px; height: 26px; border-radius: 4px; object-fit: cover; background: var(--raised); }
+.art-albums { max-height: 220px; overflow-y: auto; }
+.card-tile { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #1c1d21; color: #8c8c8c; font-size: 44px; }
+.card-arrow { color: #fff; font-size: 44px; line-height: 1; }
+.warn {
+  background: var(--warn-bg); color: #f6dfad; border-radius: 4px; padding: 7px 10px; font-size: 12px;
+  user-select: text;
+}
+.warn p + p { margin-top: 6px; }
+.chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.chip {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 0 4px;
+  background: none; border-color: transparent; font-size: 11px; min-height: 0;
+}
+.chip i { display: block; width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .22); }
+.chip[aria-pressed=true] { background: var(--raised-hover); border-color: var(--line-strong); }
+.menu-sample {
+  display: flex; justify-content: space-between; align-items: center; height: 38px; padding: 0 14px;
+  border-radius: 6px; font-family: Arial, "Liberation Sans", sans-serif; font-size: 16px;
+}
+
+/* Dialogs */
+dialog {
+  width: 460px; max-width: calc(100vw - 40px); padding: 20px; color: var(--text);
+  background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, .5);
+}
+dialog::backdrop { background: rgba(0, 0, 0, .5); }
+dialog h2 { font-size: 16px; margin-bottom: 10px; }
+.buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; align-items: center; }
+.buttons .spacer { flex: 1; }
+.drive-row { display: flex; gap: 8px; }
+.drive-row select { flex: 1; min-width: 0; }
+.card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.steps { margin: 10px 0 0; padding-left: 20px; }
+.steps + .note { margin-top: 12px; }
+.steps li + li { margin-top: 6px; }
+.error { color: #ffb4a8; margin-top: 10px; }
+.warn ul { margin: 4px 0 0; padding-left: 16px; }
+#toast {
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); max-width: 560px;
+  background: #33343a; border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .4); opacity: 0; pointer-events: none; transition: opacity .15s;
+}
+#toast.show { opacity: 1; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>Q2 Theme Studio</h1>
+  <div class="modes" role="tablist" aria-label="What to edit">
+    <button id="modeTheme" type="button" role="tab" aria-controls="themeView">Theme</button>
+    <button id="modeEq" type="button" role="tab" aria-controls="eqView">EQ</button>
+    <button id="modeLibrary" type="button" role="tab" aria-controls="libraryView">Library</button>
+  </div>
+  <label id="themeNameField" class="name-field">Theme name
+    <input id="themeName" type="text" maxlength="40" placeholder="My theme" spellcheck="false" autocomplete="off">
+  </label>
+  <label id="eqNameField" class="name-field" hidden>Preset name
+    <input id="eqName" type="text" maxlength="60" placeholder="My EQ" spellcheck="false" autocomplete="off">
+  </label>
+  <span id="unsaved" class="muted" title="Save to the Q2 or export to keep these changes" hidden>Not saved</span>
+  <span class="spacer"></span>
+  <button id="btnOpen" type="button" title="Open a file (Ctrl+O)">Open…</button>
+  <button id="btnExport" type="button" title="Save a copy as a file">Export…</button>
+  <button id="btnSave" type="button" class="primary" title="Save to the Q2's card (Ctrl+S)">Save to Q2…</button>
+</header>
+
+<main id="themeView" class="layout">
+  <nav class="left" aria-label="Screens and items">
+    <div id="tabs" class="tabs" role="tablist" aria-label="Screens"></div>
+    <div class="list-head"><h2 id="listTitle">On this screen</h2></div>
+    <div id="elements" class="elements" role="tabpanel" aria-labelledby="listTitle"></div>
+    <p id="pageNote" class="note"></p>
+    <div class="left-foot">
+      <button id="btnResetScreen" type="button">Reset this screen</button>
+      <button id="btnResetAll" type="button">Reset everything</button>
+      <p id="about" class="about"></p>
+    </div>
+  </nav>
+
+  <section class="centre" aria-label="Preview">
+    <div class="toolbar">
+      <button id="btnUndo" type="button" title="Ctrl+Z">Undo</button>
+      <button id="btnRedo" type="button" title="Ctrl+Y">Redo</button>
+      <span class="spacer"></span>
+      <label class="check"><input id="chkGhosts" type="checkbox"> Show hidden outlines</label>
+    </div>
+    <div id="stageWrap" class="stage-wrap">
+      <div class="device">
+        <div id="stage" class="stage" tabindex="0" role="group"
+             aria-label="Screen preview. Pick an item from the list, then use the arrow keys to move it.">
+          <div class="scaler">
+            <div id="content" class="content"></div>
+            <div id="overlay" class="overlay"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p id="hint" class="hint"></p>
+  </section>
+
+  <aside class="right" aria-label="Settings">
+    <section class="section stack" aria-labelledby="inspTitle">
+      <h2 id="inspTitle">Nothing selected</h2>
+      <p id="inspEmpty" class="muted">Click something on the screen, or pick it from the list.</p>
+      <div id="inspBody" class="stack" hidden>
+        <label class="switch-row"><span>Show on screen</span>
+          <input id="inspShow" type="checkbox" role="switch"></label>
+        <p id="inspNote" class="note" hidden></p>
+        <div id="inspWarn" class="warn" hidden></div>
+        <div id="inspMove">
+          <span class="field-title">Position on the screen</span>
+          <div class="pair">
+            <label>Left <input id="inspX" type="number" step="1"></label>
+            <label>Top <input id="inspY" type="number" step="1"></label>
+          </div>
+        </div>
+        <div id="inspSize">
+          <span class="field-title">Size</span>
+          <div class="pair">
+            <label>Width <input id="inspW" type="number" step="1"></label>
+            <label>Height <input id="inspH" type="number" step="1"></label>
+          </div>
+          <p id="inspSizeNote" class="note" style="margin-top:6px"></p>
+        </div>
+        <div id="inspFont">
+          <label class="field-title" for="inspFontPx">Text size</label>
+          <div class="pair"><input id="inspFontPx" type="number" step="1"></div>
+        </div>
+        <div id="inspText">
+          <label class="field-title" for="inspTextBox">Text</label>
+          <div class="pair">
+            <input id="inspTextBox" type="text" spellcheck="false" autocomplete="off" style="width:150px">
+            <button id="inspTextClear" type="button" class="quiet">Default</button>
+          </div>
+        </div>
+        <div id="inspTint">
+          <label class="field-title" for="inspTintHex">Text colour</label>
+          <div class="pair">
+            <input id="inspTintPick" type="color" aria-label="Choose a text colour">
+            <input id="inspTintHex" type="text" maxlength="7" spellcheck="false" autocomplete="off">
+            <button id="inspTintClear" type="button" class="quiet">Default</button>
+          </div>
+        </div>
+        <button id="inspReset" type="button">Reset this item</button>
+      </div>
+    </section>
+
+    <section id="artSection" class="section stack" aria-labelledby="artTitle" hidden>
+      <h2 id="artTitle">Right panel</h2>
+      <p class="note">Your images, GIFs and album covers take turns on the right of Home, in place of the playing track's cover. One picture just stays there. This shows when Home is set to Split.</p>
+      <div id="artPins" class="image-list"></div>
+      <p id="artEmpty" class="note">Nothing here yet, so the panel shows the playing track's cover.</p>
+      <div class="pair">
+        <button id="artAdd" type="button">Add images…</button>
+        <button id="artFind" type="button">Find albums</button>
+      </div>
+      <input id="artFilter" type="text" placeholder="Search albums" aria-label="Search albums" spellcheck="false" autocomplete="off" style="width:100%" hidden>
+      <div id="artAlbums" class="art-albums" hidden></div>
+      <p id="artNote" class="note" hidden></p>
+      <div>
+        <label class="field-title" for="artSeconds">Seconds each</label>
+        <div class="pair"><input id="artSeconds" type="number" step="1"></div>
+      </div>
+      <p class="note">PNG, JPEG or animated GIF, cropped to fit when you save. The Q2 keeps a GIF in memory for its turn, so ones with more than about 28 frames lose some.</p>
+    </section>
+
+    <section id="homeSection" class="section stack" aria-labelledby="homeTitle" hidden>
+      <h2 id="homeTitle">Home sizes</h2>
+      <div>
+        <label class="field-title" for="homeLayout">Preview as</label>
+        <select id="homeLayout" style="width:100%">
+          <option value="split">Split</option>
+          <option value="full">Full</option>
+          <option value="carousel">Carousel</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-title" for="homeRowsBox">Row height</label>
+        <div class="pair"><input id="homeRows" type="range" aria-label="Row height"><input id="homeRowsBox" type="number" step="1"></div>
+      </div>
+      <div>
+        <label class="field-title" for="homeTopBox">Top panel height</label>
+        <div class="pair"><input id="homeTop" type="range" aria-label="Top panel height"><input id="homeTopBox" type="number" step="1"></div>
+      </div>
+      <div>
+        <label class="field-title" for="homeCardsBox">Card size (Carousel)</label>
+        <div class="pair"><input id="homeCards" type="range" aria-label="Card size"><input id="homeCardsBox" type="number" step="1"></div>
+      </div>
+      <p class="note">The top panel is space under the status bar, which stays its own height because every Q2 page fits under it.</p>
+    </section>
+    <input id="imagePick" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.bmp" multiple hidden>
+
+    <section class="section stack" aria-labelledby="colTitle">
+      <h2 id="colTitle">Colours</h2>
+      <div>
+        <label class="field-title" for="bgHex">Background colour</label>
+        <div class="pair">
+          <input id="bgPick" type="color" aria-label="Choose a background colour">
+          <input id="bgHex" type="text" maxlength="7" spellcheck="false" autocomplete="off" placeholder="Default">
+          <button id="bgClear" type="button" class="quiet">Default</button>
+        </div>
+      </div>
+      <div id="bgWarn" class="warn" hidden></div>
+      <p class="note">Any hex colour. Text turns white or near-black to suit it, and this replaces Light Mode while the theme is on.</p>
+      <div>
+        <label class="field-title" for="accentHex">Accent colour</label>
+        <div class="pair">
+          <input id="accentPick" type="color" aria-label="Choose an accent colour">
+          <input id="accentHex" type="text" maxlength="7" spellcheck="false" autocomplete="off" placeholder="Default">
+          <button id="accentClear" type="button" class="quiet">Default</button>
+        </div>
+      </div>
+      <div id="chips" class="chips" role="group" aria-label="Q2 accent colours"></div>
+      <div id="accentWarn" class="warn" hidden></div>
+      <div>
+        <span class="field-title">How a selected row looks in menus</span>
+        <div id="menuSample" class="menu-sample" aria-hidden="true"><span>Library</span><span>›</span></div>
+      </div>
+      <p class="note">The accent also fills the progress bar on Now Playing.</p>
+    </section>
+
+    <section class="section stack" aria-labelledby="batTitle">
+      <h2 id="batTitle">Battery</h2>
+      <div>
+        <label class="field-title" for="batterySelect">In the status bar</label>
+        <select id="batterySelect" style="width:100%">
+          <option value="">Keep the Q2's setting</option>
+          <option value="icon">Icon</option>
+          <option value="percent">Percent</option>
+          <option value="both">Icon + Percent</option>
+          <option value="inside">Percent Inside</option>
+        </select>
+      </div>
+      <p class="note">Any choice but the first replaces Display's Battery setting while this theme is on. With little room left in the status bar, the Q2 shows the icon.</p>
+    </section>
+  </aside>
+</main>
+
+<main id="libraryView" class="library-view" hidden>
+  <div class="library-head">
+    <input id="libSearch" type="text" placeholder="Search themes" aria-label="Search themes" spellcheck="false" autocomplete="off">
+    <span id="libCount" class="muted"></span>
+    <span class="spacer"></span>
+    <button id="libRefresh" type="button">Refresh</button>
+    <button id="libShare" type="button" class="primary">Share this theme…</button>
+  </div>
+  <p id="libNote" class="muted" hidden></p>
+  <div id="libGrid" class="library-grid"></div>
+</main>
+
+<main id="eqView" class="layout" hidden>
+  <nav class="left" aria-label="Presets">
+    <div class="list-head pin-head"><h2>Pinned</h2><button id="eqPinThis" type="button" class="quiet">Pin this one</button></div>
+    <div id="eqPinList" class="elements"></div>
+    <p id="eqPinNote" class="note" style="padding:2px 14px 4px"></p>
+    <div class="list-head"><h2>Presets</h2></div>
+    <div class="eq-drive">
+      <input id="eqIemFilter" type="text" placeholder="Search presets" aria-label="Search presets" spellcheck="false" autocomplete="off">
+    </div>
+    <div id="eqIemList" class="elements"></div>
+    <p id="eqIemNote" class="note" style="padding:4px 14px 2px"></p>
+    <div class="list-head"><h2>On the card</h2></div>
+    <div class="eq-drive">
+      <select id="eqDrive" aria-label="Card"></select>
+      <button id="eqCardRefresh" type="button">Refresh</button>
+    </div>
+    <div id="eqCardList" class="elements"></div>
+    <p id="eqCardNote" class="note" style="padding:0 14px 8px"></p>
+    <div class="left-foot">
+      <button id="eqReset" type="button" style="grid-column:1 / -1">Start over with 10 flat bands</button>
+      <p class="about">Saving puts a preset in the card's EQ folder, for the Q2's Import from SD /EQ. Open… takes AutoEQ and Equalizer APO files.</p>
+      <p id="eqCredit" class="about"></p>
+    </div>
+  </nav>
+
+  <section class="centre eq-main" aria-label="EQ curve and bands">
+    <div class="toolbar">
+      <button id="eqUndo" type="button" title="Ctrl+Z">Undo</button>
+      <button id="eqRedo" type="button" title="Ctrl+Y">Redo</button>
+      <span class="spacer"></span>
+      <span id="eqCount" class="muted"></span>
+      <button id="eqSort" type="button">Sort by frequency</button>
+      <button id="eqAdd" type="button">Add band</button>
+    </div>
+    <div class="eq-graph-wrap">
+      <canvas id="eqGraph" role="img" aria-label="The EQ's curve. The band table below holds the same values."></canvas>
+      <div id="eqLegend" class="eq-legend" hidden>
+        <span><i style="background:#7db0ff"></i>Left</span><span><i style="background:#f3a35f"></i>Right</span>
+      </div>
+    </div>
+    <div class="eq-bands">
+      <table>
+        <thead><tr><th></th><th>On</th><th>Type</th><th>Channel</th><th>Hz</th><th>Gain dB</th><th>Q</th><th></th></tr></thead>
+        <tbody id="eqBandRows"></tbody>
+      </table>
+      <p id="eqEmpty" class="muted" hidden>No bands. Press Add band, or double-click the curve.</p>
+    </div>
+    <p class="hint">Drag a dot to change its frequency and gain. Scroll over it to change Q. Double-click the curve to add a band.</p>
+  </section>
+
+  <aside class="right" aria-label="Output">
+    <section class="section stack" aria-labelledby="eqOutTitle">
+      <h2 id="eqOutTitle">Output</h2>
+      <div>
+        <label class="field-title" for="eqPreampMode">Preamp</label>
+        <div class="pair">
+          <select id="eqPreampMode">
+            <option value="auto">Auto</option>
+            <option value="set">Set by hand</option>
+          </select>
+          <input id="eqPreamp" type="number" min="-60" max="24" step="0.1" aria-label="Preamp in decibels">
+        </div>
+        <p id="eqAutoNote" class="note" style="margin-top:6px"></p>
+      </div>
+      <div>
+        <label class="field-title" for="eqBalance">Balance, dB</label>
+        <input id="eqBalance" type="number" min="-12" max="12" step="0.1">
+        <p class="note" style="margin-top:6px">Above 0 turns the left channel down, below 0 the right.</p>
+      </div>
+    </section>
+    <section class="section stack" aria-labelledby="eqCurveTitle">
+      <h2 id="eqCurveTitle">Curve</h2>
+      <div>
+        <label class="field-title" for="eqRate">Draw it at</label>
+        <select id="eqRate" style="width:100%">
+          <option value="44100">44.1 kHz</option>
+          <option value="48000">48 kHz</option>
+          <option value="96000">96 kHz</option>
+          <option value="192000">192 kHz</option>
+        </select>
+      </div>
+      <p id="eqPeak" class="note"></p>
+      <div id="eqWarn" class="warn" hidden></div>
+    </section>
+  </aside>
+</main>
+
+<dialog id="dlgSave" aria-labelledby="saveTitle">
+  <div id="savePick">
+    <h2 id="saveTitle">Save to Q2</h2>
+    <p class="muted">Put the card in a card reader, or connect the Q2 in USB storage mode. This needs a Q2 Pod firmware with card themes.</p>
+    <div style="margin-top:14px">
+      <label class="field-title" for="driveSelect">Save to</label>
+      <div class="drive-row">
+        <select id="driveSelect"></select>
+        <button id="driveRefresh" type="button">Refresh</button>
+      </div>
+    </div>
+    <p id="driveInfo" class="note" style="margin-top:8px"></p>
+    <div id="cardActions" class="card-actions" hidden>
+      <button id="saveLoad" type="button">Load it here</button>
+      <button id="saveRemove" type="button">Remove theme from this card</button>
+    </div>
+    <div id="saveWarn" class="warn" style="margin-top:12px" hidden></div>
+    <p id="saveError" class="error" role="alert" hidden></p>
+    <div class="buttons">
+      <button id="saveCancel" type="button">Cancel</button>
+      <button id="saveGo" type="button" class="primary">Save</button>
+    </div>
+  </div>
+
+  <div id="saveDone" hidden>
+    <h2 id="doneTitle">Saved</h2>
+    <p id="doneText"></p>
+    <ol class="steps">
+      <li>Safely eject the card and put it back in the Q2. If the Q2 is connected by USB, leave USB mode instead.</li>
+      <li>Wait for “Theme saved” on the Q2.</li>
+      <li>Restart the Q2 to see your theme.</li>
+    </ol>
+    <p class="note">If “Theme saved” does not appear, your firmware does not support card themes yet. The file on the card does no harm.</p>
+    <div class="buttons"><button id="doneClose" type="button" class="primary">Done</button></div>
+  </div>
+
+  <div id="saveConfirm" hidden>
+    <h2>Remove the theme from this card?</h2>
+    <p id="confirmText"></p>
+    <p id="confirmError" class="error" role="alert" hidden></p>
+    <div class="buttons">
+      <button id="confirmKeep" type="button">Keep it</button>
+      <button id="confirmRemove" type="button" class="primary">Remove theme</button>
+    </div>
+  </div>
+
+  <div id="saveRemoved" hidden>
+    <h2>Theme removed</h2>
+    <p id="removedText"></p>
+    <ol class="steps">
+      <li>Safely eject the card and put it back in the Q2. If the Q2 is connected by USB, leave USB mode instead.</li>
+      <li>Restart the Q2 to go back to its normal look.</li>
+    </ol>
+    <div class="buttons"><button id="removedClose" type="button" class="primary">Done</button></div>
+  </div>
+</dialog>
+
+<dialog id="dlgLoad" aria-labelledby="loadTitle">
+  <h2 id="loadTitle">Your Q2 card has a theme</h2>
+  <p id="loadText"></p>
+  <div class="buttons">
+    <button id="loadSkip" type="button">Start fresh</button>
+    <button id="loadYes" type="button" class="primary">Load it</button>
+  </div>
+</dialog>
+
+<dialog id="dlgClose" aria-labelledby="closeTitle">
+  <h2 id="closeTitle">Save your changes first?</h2>
+  <p id="closeText">This theme has changes that are not saved. If you close now, they are lost.</p>
+  <div class="buttons">
+    <button id="closeDiscard" type="button">Close without saving</button>
+    <span class="spacer"></span>
+    <button id="closeKeep" type="button">Keep editing</button>
+    <button id="closeCopy" type="button" class="primary" autofocus>Save a copy…</button>
+  </div>
+</dialog>
+
+<dialog id="dlgEqSave" aria-labelledby="eqSaveTitle">
+  <div id="eqSavePick">
+    <h2 id="eqSaveTitle">Save to Q2</h2>
+    <p class="muted">Put the card in a card reader, or connect the Q2 in USB storage mode.</p>
+    <div style="margin-top:14px">
+      <label class="field-title" for="eqSaveDrive">Save to</label>
+      <div class="drive-row">
+        <select id="eqSaveDrive"></select>
+        <button id="eqSaveRefresh" type="button">Refresh</button>
+      </div>
+    </div>
+    <p id="eqSavePath" class="path" style="margin-top:10px"></p>
+    <p id="eqSaveInfo" class="note" style="margin-top:6px"></p>
+    <div id="eqSaveWarn" class="warn" style="margin-top:12px" hidden></div>
+    <p id="eqSaveError" class="error" role="alert" hidden></p>
+    <div class="buttons">
+      <button id="eqSaveCancel" type="button">Cancel</button>
+      <button id="eqSaveGo" type="button" class="primary">Save</button>
+    </div>
+  </div>
+
+  <div id="eqSaveDone" hidden>
+    <h2>Saved</h2>
+    <p id="eqDoneText"></p>
+    <ol class="steps">
+      <li>Safely eject the card and put it back in the Q2. If the Q2 is connected by USB, leave USB mode instead.</li>
+      <li>On the Q2, while a song is on Now Playing, hold Play/Pause and choose EQ.</li>
+      <li>Pick this preset. It plays straight away, and stays in the list from then on.</li>
+    </ol>
+    <p class="note">With firmware older than V00I, use Audio settings, EQ, Advanced, Presets, Import from SD /EQ, then Apply changes.</p>
+    <div class="buttons"><button id="eqDoneClose" type="button" class="primary">Done</button></div>
+  </div>
+</dialog>
+
+<dialog id="dlgShare" aria-labelledby="shareTitle">
+  <h2 id="shareTitle">Share this theme</h2>
+  <p id="shareName"></p>
+  <p class="muted" style="margin-top:8px">This opens a GitHub page with your theme filled in. Press Propose changes there to send it to the library. You need a free GitHub account. Themes are checked before they appear, and anyone can then use and change yours.</p>
+  <div style="margin-top:14px">
+    <label class="field-title" for="shareAuthor">Your name, shown with the theme (optional)</label>
+    <input id="shareAuthor" type="text" maxlength="40" spellcheck="false" autocomplete="off" style="width:100%">
+  </div>
+  <p id="shareNote" class="note" style="margin-top:8px"></p>
+  <p id="shareError" class="error" role="alert" hidden></p>
+  <div class="buttons">
+    <button id="shareCancel" type="button">Cancel</button>
+    <button id="shareGo" type="button" class="primary">Open GitHub</button>
+  </div>
+</dialog>
+
+<dialog id="dlgNotice" aria-labelledby="noticeTitle">
+  <h2 id="noticeTitle"></h2>
+  <p id="noticeText"></p>
+  <div class="buttons"><button id="noticeClose" type="button" class="primary">OK</button></div>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="core.js"></script>
+<script src="eq.js"></script>
+<script src="eq_page.js"></script>
+<script src="library_page.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

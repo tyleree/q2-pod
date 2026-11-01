@@ -74,7 +74,7 @@ CLOCK_TEXT = 70
 # calibration knob.
 SLIDE = f'htranslate(duration={inc("PAGE_SLIDE_MS")})'
 HOME_TOP = inc('HOME_TOP')
-HOME_ROW = 39
+HOME_ROW = inc('HOME_ROW')
 HOME_TEXT_X = inc('HOME_DOT_X') + inc('HOME_DOT') + inc('HOME_DOT_GAP')  # labels after the selection dot
 HOME_LABEL_END = inc('HOME_LABEL_END')  # mirror the text inset, clear of the lower-right glass
 HOME_LIST_W = 375
@@ -97,6 +97,7 @@ NP_META_PX = inc('NP_META_PX')
 NP_ART = 375 - 2 * NP_MARGIN - 12 - NP_TEXT_W
 NP_SLIDE_H = 186                 # the swipeable art, lyrics and info pages; the dots sit below
 NP_DOTS_Y = NP_SLIDE_H - 4       # above the seek bar's NP_TOUCH target
+NP_CHIP_H = 28                   # the EQ line's tap target
 # The art's gap below to the dots matches its gap above to "3 of 12"'s 16px text.
 NP_ART_Y = (NP_DOTS_Y - NP_ART - (NP_TOP - 16) // 2) // 2
 NP_BAR_X = max(MARGIN, corner_x(30 + 251, 8))
@@ -224,9 +225,10 @@ def home_card(menu, at, row, text):
 # tap and is the row's click target for the wheel. The payload binds Coverflow, Rockbox (shown
 # only while the card has it) and Settings, which slides list_view_homeset, hidden until then and
 # holding stock's own Playback and System setting rows (labelled Playback and System), into the list's place.
-HOME_ROWS = ['playing', 'localmusic', 'coverflow', 'folder', 'rockbox', 'stream', 'settings']
+HOME_ROWS = ['playing', 'localmusic', 'coverflow', 'folder', 'eq', 'rockbox', 'stream', 'settings']
+HOME_SHOWN = 7  # rows that fit under the status bar: the list scrolls the rest
 HOME_SETS = ['playset', 'sysset']
-HOME_LITERAL = {'coverflow': 'Coverflow', 'rockbox': 'Rockbox', 'settings': 'Settings'}
+HOME_LITERAL = {'coverflow': 'Coverflow', 'eq': 'EQ', 'rockbox': 'Rockbox', 'settings': 'Settings'}
 # Stock's visitor translates label_localmusic, label_playset and label_sysset by name; renamed, they keep
 # these shorter literals.
 HOME_RENAMED = {'localmusic': LIBRARY, 'playset': {'name': 'label_playback', 'text': 'Playback'},
@@ -255,7 +257,7 @@ def home_list(name, rows, extra=None):
     # vertical scroll views.
     view = ['scroll_view', [0, 0, HOME_LIST_W, HOME_ROW * len(views)],
             {'name': 'scroll_view_' + name, 'self_layout': 'default(x=0,y=0,w=100%,h=100%)', 'yslidable': 'true'}, views]
-    return ['list_view', [0, HOME_TOP, HOME_LIST_W, HOME_ROW * len(views)],
+    return ['list_view', [0, HOME_TOP, HOME_LIST_W, HOME_ROW * min(len(views), HOME_SHOWN)],
             {'name': 'list_view_' + name, 'item_height': str(HOME_ROW), **LIST_CLEAR, **(extra or {})}, [view]]
 
 
@@ -266,6 +268,7 @@ def ipod_home(root):
     menu = root[3][0]
     home_card(menu, 2, 'coverflow', 'Coverflow')
     home_card(menu, 4, 'rockbox', 'Rockbox')
+    home_card(menu, 4, 'eq', 'EQ')
     menu[3][1][3][1][2].update(LIBRARY)
     # Home: Carousel's (coverflow_home_layout): the carousel and its arrows, over the lists, hidden and
     # taking no taps until chosen.
@@ -453,10 +456,19 @@ def playing_page(root):
         if key.endswith(':text_color'): artist[2][key] = f'#{inc("NP_ARTIST_RGB"):06X}'
     for n, px in ((title, NP_TITLE_PX), (artist, NP_META_PX), (album, NP_META_PX)):
         check({v for k, v in n[2].items() if k.endswith(':font_size')} == {str(px)}, 'Now Playing text keeps a state size')
+    # The EQ line, between the album and the icons (patch/peq_ui.c): its words under a transparent
+    # image, as Home's rows, since only that reports a tap.
+    chip = copy.deepcopy(album)
+    chip[1] = [0, 3, text_w, 22]
+    chip[2].update(name='label_eqchip', text='')
+    chip_y = top + 62 + 22
+    check(chip_y + NP_CHIP_H <= icons_y, 'The EQ line must clear the icons')
+    eq_line = ['view', [NP_TEXT_X, chip_y, text_w, NP_CHIP_H], {'name': 'view_eqchip'}, [
+        chip, ['image', [0, 0, text_w, NP_CHIP_H], {'name': 'img_eqchip', 'clickable': 'true'}, []]]]
     named['img_cover'][1] = [NP_MARGIN, art_y, NP_ART, NP_ART]
     named['img_playstate'][1] = [NP_MARGIN + (NP_ART - 120) // 2, art_y + (NP_ART - 120) // 2, 120, 120]
     named['img_playstate'][2]['opacity'] = '0'  # retain stock gesture target without a transport glyph
-    named['view_album'][3] += [title, artist, album, named['img_playmode'], named['img_fav']]
+    named['view_album'][3] += [title, artist, album, eq_line, named['img_playmode'], named['img_fav']]
     column = (375 - 225) // 2
     named['label_lyricmsg'][1][0] += column
     # The payload paints each lyric line over its stock row, a blank label LYRIC_SLOT high for a line of one

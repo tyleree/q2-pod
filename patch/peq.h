@@ -207,6 +207,13 @@ int config_value(const char *section, const char *key, int n, int def); /* navig
 int image_show(void *img, const char *url, unsigned *size);
 int album_cmp(void *a, void *b);
 void peq_attach(void); /* peq_ui.c */
+/* peq_ui.c: Now Playing's EQ list */
+int peq_quick_open(void), peq_quick_on(void);
+const char *peq_quick_name(int row), *peq_quick_state(void);
+void peq_quick_pick(int row);
+/* peq_ui.c: Home's EQ page */
+int peq_flip_open(void *ctx, void *event), peq_flip_key(void *top, unsigned key);
+void peq_chip_bind(void *win); /* Now Playing's EQ line */
 void peq_boot(void); /* clear a previous session's Simple EQ comparison before restoring playback */
 extern int peq_chained; /* peq_ui.c: peq_stock_eq ran this boot */
 void peq_chain(void);   /* crossfade.c: peq_attach once a connect (ringnav_mode), while playing */
@@ -320,11 +327,26 @@ const char *output_device(char *vol);         /* books.c */
 void dac_take(void);                          /* books.c */
 int ipod_classic(void); /* navigation.c: Theme: Classic */
 int bold_label(void *w, int was); /* navigation.c: Classic's bold font for w's text, or stock's */
-int ipod_light(void);   /* navigation.c: Light Mode */
+int ipod_light(void);   /* navigation.c: a light page: Light Mode, or a theme's light background */
+int ipod_paper(void);   /* navigation.c: colours map at all: that, or a theme's dark background */
+unsigned ui_paper(void), ui_unflip(unsigned v); /* navigation.c: the page's colour; a grey flip leaves */
 #define np_bar_h() (ipod_classic() ? NP_BAR_CLASSIC : NP_BAR_MINIMAL)
 #define SPOT_GREY 0xffaaaaaau
 void radio_search(void);       /* radio.c */
 void toast(const char *text); /* navigation.c */
+/* theme.c: card themes (docs/themes.md) */
+void theme_load(void), theme_poll(void), theme_parse(char *text);
+void theme_apply(void *root, const char *page);
+const char *theme_sync(void);
+int theme_whole(const char *text, unsigned n), theme_on(void), theme_tints(void);
+int theme_accent(unsigned *rgb), theme_battery(void), theme_bg(unsigned *rgb);
+int theme_hidden(const char *page, const char *widget);
+int theme_home_row(void), theme_home_top(void), theme_home_card(void);
+int theme_home_art(int *seconds), theme_home_art_gif(unsigned turn);
+int theme_font(const char *page, const char *widget);
+const char *theme_text(const char *page, const char *widget);
+void theme_label(void *label, const char *page, const char *widget);
+int theme_tint(const char *page, const char *widget, unsigned *rgb);
 const char *coverflow_sort_name(void); /* coverflow.c */
 void coverflow_sort_step(void), coverflow_refresh_art(void);
 int rockbox_available(void);  /* navigation.c: a regular Rockbox binary on the card */

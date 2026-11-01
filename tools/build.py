@@ -859,6 +859,7 @@ FUNCTIONS = {
  'widget_set_children_layout': ('int', 'void *, const char *'),
  'widget_get_canvas': ('void *', 'void *'),  # the lyrics page measures its lines (lyrics.c)
  'widget_resize': ('int', 'void *, int, int'),
+ 'widget_move': ('int', 'void *, int, int'),
  'widget_layout_children': ('int', 'void *'),
  'widget_lookup': ('void *', 'void *, const char *, int'),
  'scroll_bar_scroll_to': ('int', 'void *, int, unsigned'),
@@ -1007,6 +1008,10 @@ FUNCTIONS = {
  'widget_factory_create_widget': ('void *', 'void *, const char *, void *, int, int, int, int'),
  'image_create': ('void *', 'void *, int, int, int, int'),
  'image_set_draw_type': ('int', 'void *, int'),
+ 'gif_image_create': ('void *', 'void *, int, int, int, int'),
+ 'gif_image_play': ('int', 'void *'),
+ 'gif_image_stop': ('int', 'void *'),
+ 'gif_image_set_loop': ('int', 'void *, unsigned'),
  'image_base_set_image': ('int', 'void *, const char *'),
  'widget_load_image': ('int', 'void *, const char *, void *'),
  'widget_unload_image': ('int', 'void *, void *'),
@@ -1160,10 +1165,10 @@ CONTEXT_DATA = {'bt_showcoding': 4, 'g_memory_info': 3476, 'g_folder_path': 1024
                 'g_screensaver_picture': 256, 'p_deque_screensaverlist': 4,
                 'bt_connectstatus': 4}  # a link thread runs (1), ended (2), checked (3)
 # Windows the payload creates at runtime (window_create), so no rootfs asset names them.
-PAYLOAD_WINDOWS = {'playlistedit_page', 'chapters_page', 'coverflow_page', 'photos_page', 'books_page', 'games_page', 'mostplayed_page', 'shuffle_page', 'upnext_page', 'ratings_page', 'era_page', 'era_albums_page', 'rated_page', 'longsongs_page', 'spotify_page',
+PAYLOAD_WINDOWS = {'eqflip_page', 'playlistedit_page', 'chapters_page', 'coverflow_page', 'photos_page', 'books_page', 'games_page', 'mostplayed_page', 'shuffle_page', 'upnext_page', 'ratings_page', 'era_page', 'era_albums_page', 'rated_page', 'longsongs_page', 'spotify_page',
                    'spotbrowse_page', 'radio_page', 'radionp_page', 'streamconf_page', 'tidal_downloads', 'apps_page',
                    'addon_page', 'app_songs', 'qrcode_page'}
-ICONS = [f'menu_{c}{s}.png' for c in ('coverflow', 'rockbox') for s in ('', 'down')]
+ICONS = [f'menu_{c}{s}.png' for c in ('coverflow', 'rockbox', 'eq') for s in ('', 'down')]
 # The stock EQ preset page and the images only it and the stock equalizer page show: the PEQ
 # editor clears that page's widgets on init and never binds the preset button, so none can load.
 STOCK_EQ = ['release/assets/default/raw/ui/playset/preseteq_page.bin'] + [

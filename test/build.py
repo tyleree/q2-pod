@@ -571,8 +571,9 @@ def validate_assets(directory):
                 # Labels end before the chevron's glyph; longer ones scroll (only_focus) or end in an ellipsis.
                 assert label[1][0] + label[1][2] == image[1][2] - HOME_LABEL_END and label[1][2] >= 100
                 assert label[2]['only_focus'] == 'true' and label[2]['ellipses'] == 'true'
-            assert [r[3][0][2].get('text') for r in sv[3]] == [None, 'Library', 'Coverflow', None, 'Rockbox', None, 'Settings']
+            assert [r[3][0][2].get('text') for r in sv[3]] == [None, 'Library', 'Coverflow', None, 'EQ', 'Rockbox', None, 'Settings']
             assert lg == [0, HOME_TOP, HOME_LIST_W, 7*HOME_ROW] and HOME_TOP + 7*HOME_ROW <= BOTTOM - HOME_TOP
+            assert sv[1][3] == 8*HOME_ROW and sv[2]['yslidable'] == 'true'  # eight rows: the eighth scrolls in
             # Home: Carousel's: stock's carousel and arrows after the lists, hidden and taking no taps
             # until chosen (coverflow_home_layout); its cards stock's in their places, Library's label
             # literal, Coverflow's after it and the Shortcut's after Folder on their own images.
@@ -581,8 +582,8 @@ def validate_assets(directory):
             for n, old in zip(carousel, stock_root[3]):
                 assert n[:2] == old[:2] and n[2] == {**old[2], 'visible': 'false', 'sensitive': 'false'}
             slide = carousel[0]
-            assert [c[2]['name'] for c in slide[3]] == ['btn_'+n for n in ('playing', 'localmusic', 'coverflow', 'folder', 'rockbox', 'stream', 'playset', 'sysset')]
-            assert [c[3][1][2].get('text') for c in slide[3]] == [stock_root[3][0][3][0][3][1][2]['text'], 'Library', 'Coverflow', None, 'Rockbox', None, None, None]
+            assert [c[2]['name'] for c in slide[3]] == ['btn_'+n for n in ('playing', 'localmusic', 'coverflow', 'folder', 'eq', 'rockbox', 'stream', 'playset', 'sysset')]
+            assert [c[3][1][2].get('text') for c in slide[3]] == [stock_root[3][0][3][0][3][1][2]['text'], 'Library', 'Coverflow', None, 'EQ', 'Rockbox', None, None, None]
             for card in slide[3]:
                 image = card[3][0][2]
                 assert {v for k, v in image.items() if k.endswith(':bg_image')} == {'menu_' + image['name'][4:].replace('localmusic', 'music'),
@@ -637,12 +638,15 @@ def validate_assets(directory):
             assert named['img_more'][1][1:] == [0, 50, 40]
             album = named['view_album'][3]
             assert [n[2]['name'] for n in album] == ['img_cover', 'img_playstate', 'scrlabel_title', 'scrlabel_artist', 'label_ipod_album',
-                                                     'img_playmode', 'img_fav']
+                                                     'view_eqchip', 'img_playmode', 'img_fav']
+            line = album[5]
+            assert [n[2]['name'] for n in line[3]] == ['label_eqchip', 'img_eqchip'] and line[3][1][2]['clickable'] == 'true' and line[3][1][1][2:] == line[1][2:]
+            assert album[4][1][1] + album[4][1][3] <= line[1][1] and line[1][1] + line[1][3] <= album[6][1][1]  # between the album and the icons
             # 16px outer margins, 12px from the art to the text, the text column 165px wide; the title larger.
             # Order and favourite glyphs level with the art's foot (frames NP_ICON_PAD lower); favourite centred below More. The art's gap to
             # the dots below (y 182) matches its gap to "3 of 12"'s text above.
             assert [n[1] for n in album] == [[16, 2, 166, 166], [39, 25, 120, 120], [194, 18, 165, 28], [194, 52, 165, 22], [194, 80, 165, 22],
-                                             [247, 133, 50, 50], [303, 133, 50, 50]]
+                                             [194, 102, 165, 28], [247, 133, 50, 50], [303, 133, 50, 50]]
             assert album[-1][1][0] == named['img_more'][1][0] and album[-1][1][2] == named['img_more'][1][2] == 50
             assert album[-1][1][0] - (album[-2][1][0] + album[-2][1][2]) == 6 and 80 + 22 < 118 + 13
             assert album[1][2]['opacity'] == '0'  # playback gestures retain their original target

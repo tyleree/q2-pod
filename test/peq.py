@@ -517,8 +517,11 @@ int widget_set_focused(void *x, int v) {
 }
 /* The stock keyboard window (4000) and its page panel (4001); the page it was switched to. */
 static char page[16];
+static long chip_label, chip_tap; /* Now Playing's EQ line */
 void *window_manager(void) { return (void *)3999L; }
 void *widget_lookup(void *x, const char *name, int recursive) {
+    if (chip_label && !strcmp(name, "label_eqchip")) return (void *)chip_label;
+    if (chip_label && !strcmp(name, "img_eqchip")) return (void *)chip_tap;
     if ((long)x == 3999 && !strcmp(name, "kb_default_t9")) return (void *)4000L;
     return (long)x == 4000 && !strcmp(name, "panel") ? (void *)4001L : 0;
 }
@@ -613,6 +616,9 @@ int timer_remove(unsigned id) { timer_fn = 0; ++removed; return 0; }
 int navigator_back(void) { return ++backs; }
 static int eqflag = -1;
 int write_int_config(int v, const char *s, const char *k) { if (!strcmp(s, "PLAYSET") && !strcmp(k, "EQFLAG")) eqflag = v; return 0; }
+static const char *toasted = "";
+void toast(const char *text) { toasted = text; }
+const char *shim_toast(void) { return toasted; }
 int shim_eqflag(void) { return eqflag; }
 
 int peq_page_init(void *page, void *context);
@@ -659,6 +665,56 @@ int on_wm_keyup_fun(void *a, void *b) { return ++screen_off; }
 int widget_to_local(void *x, void *xy) { return 0; }
 int eq_key(void *top, unsigned key);
 int shim_e3_open(void) { return shim_open(); } /* the EQ page opens on Simple */
+void rearm(unsigned *t, int (*fn)(const void *), unsigned ms) { stop_timer(t); *t = timer_add(fn, 0, ms); }
+int return_key(void *event, unsigned *t, int (*leave)(const void *)) { rearm(t, leave, 0); return 11; }
+void *read_all(const char *path, unsigned max, unsigned *size) {
+    FILE *f = fopen(path, "rb");
+    char *out = f ? malloc(max + 1) : 0;
+    if (f) *size = (unsigned)fread(out, 1, max, f), fclose(f);
+    return out;
+}
+void *text(void *parent, int x, int y, int ww, int h) { return make(parent, h); }
+void *page_title(void *body, const char *caption) {
+    void *title = make(body, 48);
+    widget_set_text_utf8(title, caption);
+    return title;
+}
+void *page_open(const char *name, handler closed, handler keyup) {
+    count = 1;
+    w[1].destroy = closed;
+    w[1].keyup = keyup;
+    return (void *)1;
+}
+int peq_flip_open(void *ctx, void *event), peq_flip_key(void *top, unsigned key);
+const char *shim_flip_text(int i) { return w[2 + i].text; } /* title, name, place, hint */
+int shim_flip_key(int k) { return peq_flip_key((void *)1, (unsigned[]){KEY_PREV, KEY_NEXT, KEY_CENTER, KEY_RETURN}[k]); }
+int shim_flip_other(void) { return peq_flip_key((void *)2, KEY_NEXT); }
+void peq_chip_bind(void *win);
+void shim_chip_open(void) { /* the page's own count: a second Now Playing's line is another widget */
+    chip_label = (long)make((void *)1, 28);
+    chip_tap = (long)make((void *)1, 28);
+    peq_chip_bind((void *)1);
+}
+const char *shim_chip_text(void) { return w[chip_label].text; }
+int shim_chip_tap(void) { return w[chip_tap].click(w[chip_tap].ctx, 0); }
+void shim_chip_gone(long label) { w[1].destroy((void *)label, 0); }
+long shim_chip_label(void) { return chip_label; }
+int shim_flip_rest(void) {
+    int (*f)(const void *) = timer_fn;
+    timer_fn = 0;
+    return f ? f(0) : -1;
+}
+int shim_flip_touch(int x) {
+    int event[32] = {0};
+    event[EVENT_X / 4] = x;
+    return w[1].up(0, event);
+}
+void shim_flip_close(void) { w[1].destroy((void *)1, 0); }
+int shim_flip_return(void) {
+    int event[32] = {0};
+    event[EVENT_KEY / 4] = KEY_RETURN;
+    return w[1].keyup(0, event);
+}
 int shim_e3_key(int k) { return eq_key((void *)1, (unsigned[]){KEY_PREV, KEY_NEXT, KEY_CENTER}[k]); }
 void shim_e3_return(void) { int event[8] = {0}; event[EVENT_KEY / 4] = KEY_RETURN; w[1].keyup(0, event); }
 void shim_e3_close(void) { w[1].destroy(0, 0); }
@@ -1785,6 +1841,209 @@ int main(void) {
     return 0;
 }
 """
+
+def quick_check(lib, tmp):
+    """Now Playing's EQ list, on real files: saved presets, then the card's, picked with no Apply."""
+    import shutil
+    def build(name):
+        ui = compile_host(tmp, name, ROOT/'patch/peq_ui.c', ROOT/'patch/peq.c', tmp/'shim.c', '-I', ROOT/'patch', '-include', tmp/'shim.h')
+        ui.peq_quick_name.restype = ui.peq_quick_state.restype = ui.shim_toast.restype = C.c_char_p
+        return ui
+    def names(ui):
+        return [ui.peq_quick_name(i).decode() for i in range(ui.peq_quick_open())]
+    def state(ui): return ui.peq_quick_state().decode()
+    data, saved, card = tmp/'root/mnt/data', tmp/'root/mnt/data/peq-presets', tmp/'root/mnt/mmc/EQ'
+    shutil.rmtree(saved, ignore_errors=True); shutil.rmtree(card, ignore_errors=True)
+    (data/'peq-active').unlink(missing_ok=True)
+    saved.mkdir(parents=True); card.mkdir(parents=True)
+    def keep(name, gain):
+        p = Preset(); lib.peq_default(C.byref(p)); p.bypass = 0; p.bands[0].enabled = 1; p.bands[0].gain = gain
+        assert lib.peq_save(bytes(saved/f'{name}.peq'), C.byref(p), 1) == 1
+    def plays():
+        p = Preset(); assert lib.peq_load_active(C.byref(p)); return p
+    keep('Bass', 3); keep('Flat', 1)
+    (card/'Bass.txt').write_text('Filter: ON PK Fc 100 Hz Gain 9 dB Q 1\n')  # saved already: shown once
+    (card/'Zeta.txt').write_text('Preamp: -2 dB\nFilter: ON PK Fc 1000 Hz Gain 2 dB Q 1\n')
+    (card/'Bad.txt').write_text('Filter: ON BP Fc 1000 Hz Gain 2 dB Q 1\n')
+
+    ui = build('peq_ui_quick.so')
+    assert names(ui) == ['Bass', 'Flat', 'Bad', 'Zeta'], names(ui)  # saved first, then the card's
+    assert ui.peq_quick_on() == -1 and state(ui) == 'Off' and not ui.shim_flag()
+    # A saved preset plays at once: no Apply, the filter on, the name known.
+    ui.peq_quick_pick(1)
+    assert ui.shim_flag() and state(ui) == 'Flat' and plays().bands[0].gain == 1 and not plays().bypass
+    names(ui); assert ui.peq_quick_on() == 1
+    # A card's preset imports as it plays, once.
+    ui.peq_quick_pick(3)
+    assert state(ui) == 'Zeta' and (saved/'Zeta.peq').exists() and plays().preamp == -2
+    assert names(ui) == ['Bass', 'Flat', 'Zeta', 'Bad'] and ui.peq_quick_on() == 2
+    # A bad file says why, keeps what plays, and saves nothing.
+    ui.peq_quick_pick(3)
+    assert ui.shim_toast() == b'Line 1: unsupported filter type' and state(ui) == 'Zeta' and not (saved/'Bad.peq').exists()
+    assert plays().preamp == -2
+    # A preset gone since the list opened says so; a row past the list does nothing.
+    (saved/'Flat.peq').unlink(); ui.peq_quick_pick(1); assert ui.shim_toast() == b"That preset can't be read" and state(ui) == 'Zeta'
+    ui.peq_quick_pick(99); assert state(ui) == 'Zeta'
+    keep('Flat', 1)
+    # Off keeps the preset for the next time.
+    ui.peq_quick_pick(-1)
+    assert not ui.shim_flag() and state(ui) == 'Off' and (saved/'Zeta.peq').exists() and names(ui)[2] == 'Zeta'
+    # A restart forgets the name of what plays: the list finds it by its bands.
+    ui.peq_quick_pick(2)
+    fresh = build('peq_ui_quick2.so'); C.c_ubyte.in_dll(fresh, 'g_equalizer_flag').value = 1
+    assert state(fresh) == 'On'
+    assert names(fresh)[2] == 'Zeta' and fresh.peq_quick_on() == 2 and state(fresh) == 'Zeta'
+    # An edit nothing saved isn't any row, and the row says on.
+    keep('Zeta', 7)
+    fresh = build('peq_ui_quick3.so'); C.c_ubyte.in_dll(fresh, 'g_equalizer_flag').value = 1
+    names(fresh); assert fresh.peq_quick_on() == -2 and state(fresh) == 'On'
+    # A card folder of thousands fills the list and stops, saved presets first.
+    for i in range(80): (card/f'Mass {i:02}.txt').write_text('Filter: ON PK Fc 100 Hz Gain 1 dB Q 1\n')
+    many = names(ui); assert len(many) == 64 and many[:3] == ['Bass', 'Flat', 'Zeta']
+    assert len(list(saved.iterdir())) == 3  # listing copies nothing
+    print('EQ list: order, import on pick, a bad file, Off, a restart, and a full card folder passed')
+
+
+def flip_check(lib, tmp):
+    """Home's EQ page, on real files: pins first, the wheel flips, and the sound follows when it rests."""
+    import shutil
+    PREV, NEXT, CENTRE = 0, 1, 2
+    def build(name):
+        ui = compile_host(tmp, name, ROOT/'patch/peq_ui.c', ROOT/'patch/peq.c', tmp/'shim.c', '-I', ROOT/'patch', '-include', tmp/'shim.h')
+        ui.peq_quick_name.restype = ui.peq_quick_state.restype = ui.shim_toast.restype = ui.shim_flip_text.restype = C.c_char_p
+        return ui
+    def names(ui): return [ui.peq_quick_name(i).decode() for i in range(ui.peq_quick_open())]
+    def shown(ui): return ui.shim_flip_text(1).decode(), ui.shim_flip_text(2).decode()
+    data, saved, card = tmp/'root/mnt/data', tmp/'root/mnt/data/peq-presets', tmp/'root/mnt/mmc/EQ'
+    pins = tmp/'root/mnt/mmc/Q2Pod/eq-pins.txt'
+    def clean():
+        shutil.rmtree(saved, ignore_errors=True); shutil.rmtree(card, ignore_errors=True)
+        (data/'peq-active').unlink(missing_ok=True); pins.unlink(missing_ok=True)
+        saved.mkdir(parents=True); card.mkdir(parents=True); pins.parent.mkdir(parents=True, exist_ok=True)
+    def keep(name, gain):
+        p = Preset(); lib.peq_default(C.byref(p)); p.bypass = 0; p.bands[0].enabled = 1; p.bands[0].gain = gain
+        assert lib.peq_save(bytes(saved/f'{name}.peq'), C.byref(p), 1) == 1
+    def plays():
+        p = Preset(); assert lib.peq_load_active(C.byref(p)); return p.bands[0].gain
+    PEAK = 'Filter: ON PK Fc 1000 Hz Gain %d dB Q 1\n'
+
+    clean()
+    keep('Bass', 3); keep('Flat', 1); keep('Vocal', 5)
+    (card/'Zeta.txt').write_text(PEAK % 7); (card/'Other.txt').write_text(PEAK % 2)
+    pins.write_bytes(b'q2eqpins 1\nZeta\nMissing\n../Bass\n\nVocal\nBass\r\nZeta\n')
+    ui = build('peq_ui_flip.so')
+    # Pins lead in their order; a name with no preset, a path, a blank and a repeat fall away.
+    assert names(ui) == ['Zeta', 'Vocal', 'Bass', 'Flat', 'Other'], names(ui)
+    ui.peq_flip_open(None, None)
+    assert ui.shim_flip_text(0) == b'EQ' and shown(ui) == ('Off', '')
+    # Only the pins flip, and a spin changes the name at once and the sound when it rests, so what
+    # it passes isn't imported or written.
+    assert ui.shim_flip_key(NEXT) and shown(ui) == ('Zeta', '1 of 3') and not ui.shim_flag()
+    assert ui.shim_flip_key(NEXT) and shown(ui) == ('Vocal', '2 of 3') and ui.shim_pending()
+    assert not ui.shim_flag() and not (saved/'Zeta.peq').exists()
+    ui.shim_flip_rest()
+    assert ui.shim_flag() and plays() == 5 and ui.peq_quick_state() == b'Vocal' and not (saved/'Zeta.peq').exists()
+    # Past the last comes Off, then the first; a card's preset imports as it plays.
+    ui.shim_flip_key(NEXT); ui.shim_flip_rest(); assert shown(ui) == ('Bass', '3 of 3') and plays() == 3
+    ui.shim_flip_key(NEXT); ui.shim_flip_rest(); assert shown(ui) == ('Off', '') and not ui.shim_flag()
+    ui.shim_flip_key(NEXT); ui.shim_flip_rest()
+    assert shown(ui) == ('Zeta', '1 of 3') and ui.shim_flag() and plays() == 7 and (saved/'Zeta.peq').exists()
+    ui.shim_flip_key(PREV); ui.shim_flip_rest(); assert shown(ui) == ('Off', '') and not ui.shim_flag()
+    ui.shim_flip_key(PREV); ui.shim_flip_rest(); assert shown(ui) == ('Bass', '3 of 3') and plays() == 3
+    # A tap on either side flips too.
+    ui.shim_flip_touch(300); ui.shim_flip_rest(); assert shown(ui) == ('Off', '')
+    ui.shim_flip_touch(30); ui.shim_flip_rest(); assert shown(ui) == ('Bass', '3 of 3')
+    # Other pages keep their wheel.
+    assert not ui.shim_flip_other()
+    # Leaving with the wheel still moving plays where it stopped, once.
+    ui.shim_flip_key(PREV); assert shown(ui) == ('Vocal', '2 of 3') and plays() == 3
+    ui.shim_flip_close(); assert plays() == 5 and not ui.shim_pending()
+    assert not ui.peq_flip_key(None, 0)
+    # It opens on what's playing, and Centre and Return leave.
+    backs = ui.shim_backs(); ui.peq_flip_open(None, None); assert shown(ui) == ('Vocal', '2 of 3')
+    assert ui.shim_flip_key(CENTRE); ui.shim_flip_rest(); assert ui.shim_backs() == backs + 1
+    ui.shim_flip_close(); ui.peq_flip_open(None, None)
+    assert ui.shim_flip_return() == 11; ui.shim_flip_rest(); assert ui.shim_backs() == backs + 2
+    ui.shim_flip_close()
+    # A preset playing but not pinned is named, on the Off row, until the wheel turns.
+    ui.peq_quick_open(); ui.peq_quick_pick(3)
+    ui.peq_flip_open(None, None); assert shown(ui) == ('Flat', ''); ui.shim_flip_close()
+    # With no pins it flips what's saved, not the whole card folder.
+    pins.unlink(); ui.peq_flip_open(None, None); assert shown(ui) == ('Flat', '2 of 4')
+    ui.shim_flip_close()
+    # A file not ours is no pins.
+    pins.write_text('Bass\nFlat\n'); assert names(ui)[:2] == ['Bass', 'Flat']
+    pins.write_text('q2eqpins 2\nFlat\n'); assert names(ui)[0] == 'Bass'
+    pins.unlink()
+    # Nothing saved: the card's presets; and nothing at all says how to add some.
+    clean(); (card/'Zeta.txt').write_text(PEAK % 7)
+    ui = build('peq_ui_flip2.so'); ui.peq_flip_open(None, None); assert shown(ui) == ('Off', '')
+    ui.shim_flip_key(NEXT); assert shown(ui) == ('Zeta', '1 of 1'); ui.shim_flip_close(); assert (saved/'Zeta.peq').exists()
+    clean(); ui = build('peq_ui_flip3.so'); ui.peq_flip_open(None, None)
+    assert shown(ui) == ('No presets yet', '') and ui.shim_flip_text(3) == b'Add presets with Q2 Theme Studio'
+    ui.shim_flip_key(NEXT); assert shown(ui) == ('No presets yet', '') and not ui.shim_pending()
+    ui.shim_flip_close()
+    print("Home's EQ page: pins, a spin, wrapping, Off, leaving mid-turn, no pins and no presets passed")
+
+
+def chip_check(lib, tmp):
+    """Now Playing's EQ line, on real files: says what plays, and a tap flips the same list as Home's page."""
+    import shutil
+    def build(name):
+        ui = compile_host(tmp, name, ROOT/'patch/peq_ui.c', ROOT/'patch/peq.c', tmp/'shim.c', '-I', ROOT/'patch', '-include', tmp/'shim.h')
+        ui.peq_quick_state.restype = ui.shim_toast.restype = ui.shim_chip_text.restype = C.c_char_p
+        ui.shim_chip_label.restype = C.c_long
+        ui.shim_chip_gone.argtypes = [C.c_long]
+        return ui
+    data, saved, card = tmp/'root/mnt/data', tmp/'root/mnt/data/peq-presets', tmp/'root/mnt/mmc/EQ'
+    pins = tmp/'root/mnt/mmc/Q2Pod/eq-pins.txt'
+    def clean():
+        shutil.rmtree(saved, ignore_errors=True); shutil.rmtree(card, ignore_errors=True)
+        (data/'peq-active').unlink(missing_ok=True); pins.unlink(missing_ok=True)
+        saved.mkdir(parents=True); card.mkdir(parents=True); pins.parent.mkdir(parents=True, exist_ok=True)
+    def keep(name, gain):
+        p = Preset(); lib.peq_default(C.byref(p)); p.bypass = 0; p.bands[0].enabled = 1; p.bands[0].gain = gain
+        assert lib.peq_save(bytes(saved/f'{name}.peq'), C.byref(p), 1) == 1
+    def plays():
+        p = Preset(); assert lib.peq_load_active(C.byref(p)); return p.bands[0].gain
+
+    clean()
+    keep('Bass', 3); keep('Flat', 1); keep('Vocal', 5)
+    pins.write_text('q2eqpins 1\nFlat\nBass\n')
+    ui = build('peq_ui_chip.so')
+    ui.shim_chip_open()
+    assert ui.shim_chip_text() == b'EQ: Off'
+    # A tap moves on at once and the sound when the tapping rests, through the pins, so a run of
+    # taps writes once.
+    ui.shim_chip_tap(); assert ui.shim_chip_text() == b'EQ: Flat' and not ui.shim_flag() and ui.shim_pending()
+    ui.shim_chip_tap(); assert ui.shim_chip_text() == b'EQ: Bass' and not ui.shim_flag()
+    ui.shim_flip_rest()
+    assert ui.shim_flag() and plays() == 3 and ui.shim_chip_text() == b'EQ: Bass' and ui.peq_quick_state() == b'Bass'
+    # After the last comes Off, then the first again.
+    ui.shim_chip_tap(); ui.shim_flip_rest(); assert ui.shim_chip_text() == b'EQ: Off' and not ui.shim_flag()
+    ui.shim_chip_tap(); ui.shim_flip_rest(); assert ui.shim_chip_text() == b'EQ: Flat' and plays() == 1
+    # The hold menu's pick shows here too.
+    ui.peq_quick_open(); ui.peq_quick_pick(1); assert ui.shim_chip_text() == b'EQ: Bass'
+    ui.peq_quick_pick(-1); assert ui.shim_chip_text() == b'EQ: Off'
+    ui.peq_quick_pick(0)
+    # A preset gone says so, and the line goes back to what plays.
+    (saved/'Bass.peq').unlink()
+    ui.shim_chip_tap(); assert ui.shim_chip_text() == b'EQ: Bass' or ui.shim_chip_text() == b'EQ: Off'
+    ui.shim_flip_rest(); assert ui.shim_chip_text() in (b'EQ: Flat', b'EQ: Off')
+    keep('Bass', 3)
+    # A restart forgets the name of what plays, and the line finds it.
+    ui.peq_quick_open(); ui.peq_quick_pick(1); assert plays() == 3
+    fresh = build('peq_ui_chip2.so'); C.c_ubyte.in_dll(fresh, 'g_equalizer_flag').value = 1
+    fresh.shim_chip_open(); assert fresh.shim_chip_text() == b'EQ: Bass', fresh.shim_chip_text()
+    # An old Now Playing going leaves the new one's line alone; its own going leaves a pick writing nothing there.
+    old = fresh.shim_chip_label(); fresh.shim_chip_open(); new = fresh.shim_chip_label()
+    fresh.shim_chip_gone(old); fresh.peq_quick_open(); fresh.peq_quick_pick(-1); assert fresh.shim_chip_text() == b'EQ: Off'
+    fresh.shim_chip_gone(new); fresh.peq_quick_open(); fresh.peq_quick_pick(0); assert fresh.shim_chip_text() == b'EQ: Off'
+    # Nothing to flip says how to add some, and keeps what's there.
+    clean(); ui = build('peq_ui_chip3.so'); ui.shim_chip_open(); ui.shim_chip_tap()
+    assert ui.shim_toast() == b'Add presets with Q2 Theme Studio' and ui.shim_chip_text() == b'EQ: Off' and not ui.shim_pending()
+    print("Now Playing's EQ line: tapping, wrapping, the hold menu, a restart, a new page and no presets passed")
+
 
 def player_check(tmp):
     """hciplayer's filter: negotiation, track changes, live updates and cleanup."""
@@ -3126,6 +3385,9 @@ if __name__ == '__main__':
         dsp_check(lib)
         eq3_check(lib, tmp)
         editor_check(lib, tmp)
+        quick_check(lib, tmp)
+        flip_check(lib, tmp)
+        chip_check(lib, tmp)
         player_check(tmp)
         visualizer_check(tmp)
         scrobble_check(tmp)

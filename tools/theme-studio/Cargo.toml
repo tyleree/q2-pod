@@ -1,0 +1,29 @@
+[package]
+name = "q2-theme-studio"
+version = "1.0.0"
+edition = "2021"
+description = "Recolour, move and remove parts of the Q2 Pod interface from a Windows PC."
+publish = false
+
+[dependencies]
+wry = { version = "0.53", default-features = false, features = ["os-webview", "protocol"] }
+tao = { version = "0.34", default-features = false, features = ["rwh_06"] }
+rfd = { version = "0.15", default-features = false }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.60", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_WindowsProgramming",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

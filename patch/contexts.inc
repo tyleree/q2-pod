@@ -49,6 +49,7 @@
 { "playmode_page", CTX_FIXED, CHOICE },
 { "playset_page", CTX_FIXED, RING },
 { "equalizer_page", CTX_DYNAMIC, 0 }, /* PEQ list editor */
+{ "eqflip_page", CTX_DYNAMIC, 0 }, /* runtime window (patch/peq_ui.c): Home's EQ */
 { "replaygain_page", CTX_FIXED, CHOICE },
 { "usbvol_page", CTX_FIXED, CHOICE },
 { "specfolder_page", CTX_DYNAMIC, 0 },

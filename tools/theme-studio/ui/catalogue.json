@@ -1,0 +1,833 @@
+{
+ "format": 1,
+ "firmware": "1.6.0",
+ "tag": "V160I",
+ "screen": [
+  375,
+  320
+ ],
+ "pages": {
+  "playing_page": {
+   "label": "Now Playing",
+   "origin": [
+    0,
+    30
+   ],
+   "elements": [
+    {
+     "id": "img_cover",
+     "label": "Album art",
+     "kind": "image",
+     "actions": [
+      "hide",
+      "move",
+      "size"
+     ],
+     "warn": "Tapping the art opens it full screen. Hidden, that tap goes too.",
+     "x": 16,
+     "y": 2,
+     "w": 166,
+     "h": 166,
+     "parent": [
+      0,
+      70
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      186
+     ]
+    },
+    {
+     "id": "scrlabel_title",
+     "label": "Song title",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "move",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 194,
+     "y": 18,
+     "w": 165,
+     "h": 28,
+     "parent": [
+      0,
+      70
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      186
+     ],
+     "font": 22
+    },
+    {
+     "id": "scrlabel_artist",
+     "label": "Artist",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "move",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 194,
+     "y": 52,
+     "w": 165,
+     "h": 22,
+     "parent": [
+      0,
+      70
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      186
+     ],
+     "font": 18
+    },
+    {
+     "id": "label_ipod_album",
+     "label": "Album",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "move",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 194,
+     "y": 80,
+     "w": 165,
+     "h": 22,
+     "parent": [
+      0,
+      70
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      186
+     ],
+     "font": 15
+    },
+    {
+     "id": "view_eqchip",
+     "label": "EQ line",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "move"
+     ],
+     "warn": "Hidden, tapping to flip EQ goes too. Hold Play/Pause still changes it.",
+     "x": 194,
+     "y": 102,
+     "w": 165,
+     "h": 28,
+     "parent": [
+      0,
+      70
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      186
+     ]
+    },
+    {
+     "id": "img_playmode",
+     "label": "Shuffle and repeat",
+     "kind": "image",
+     "actions": [
+      "hide",
+      "move",
+      "size",
+      "scale"
+     ],
+     "warn": "Hidden, change it from the Play/Pause hold menu or Playback settings.",
+     "x": 247,
+     "y": 133,
+     "w": 50,
+     "h": 50,
+     "parent": [
+      0,
+      70
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      186
+     ]
+    },
+    {
+     "id": "img_fav",
+     "label": "Heart",
+     "kind": "image",
+     "actions": [
+      "hide",
+      "move",
+      "size",
+      "scale"
+     ],
+     "warn": "Hidden, use the Play/Pause hold menu to favourite a song. Tidal songs may have no other way.",
+     "x": 303,
+     "y": 133,
+     "w": 50,
+     "h": 50,
+     "parent": [
+      0,
+      70
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      186
+     ]
+    },
+    {
+     "id": "label_ipod_pos",
+     "label": "Queue position",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "move",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 22,
+     "y": 0,
+     "w": 281,
+     "h": 40,
+     "parent": [
+      0,
+      30
+     ],
+     "box": [
+      0,
+      0,
+      303,
+      40
+     ],
+     "font": 16
+    },
+    {
+     "id": "label_playtime",
+     "label": "Elapsed time",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "move",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 46,
+     "y": 265,
+     "w": 80,
+     "h": 16,
+     "parent": [
+      0,
+      30
+     ],
+     "box": [
+      0,
+      245,
+      375,
+      290
+     ],
+     "font": 14
+    },
+    {
+     "id": "label_ipod_remain",
+     "label": "Remaining time",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "move",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 249,
+     "y": 265,
+     "w": 80,
+     "h": 16,
+     "parent": [
+      0,
+      30
+     ],
+     "box": [
+      0,
+      245,
+      375,
+      290
+     ],
+     "font": 14
+    },
+    {
+     "id": "slider_play",
+     "label": "Progress bar",
+     "kind": "bar",
+     "actions": [
+      "hide",
+      "move",
+      "size"
+     ],
+     "warn": "Hidden, you can still skip through a song with the scrub control, but cannot see it.",
+     "x": 21,
+     "y": 233,
+     "w": 333,
+     "h": 44,
+     "parent": [
+      0,
+      30
+     ],
+     "box": [
+      0,
+      226,
+      375,
+      290
+     ]
+    },
+    {
+     "id": "slide_indicator1",
+     "label": "Page dots",
+     "kind": "bar",
+     "actions": [
+      "hide"
+     ],
+     "warn": "",
+     "x": 0,
+     "y": 182,
+     "w": 375,
+     "h": 10,
+     "parent": [
+      0,
+      70
+     ],
+     "box": null
+    }
+   ]
+  },
+  "home_page": {
+   "label": "Home",
+   "origin": [
+    0,
+    30
+   ],
+   "elements": [
+    {
+     "id": "btn_playing",
+     "label": "Now Playing row",
+     "kind": "row",
+     "actions": [
+      "hide",
+      "font",
+      "text"
+     ],
+     "warn": "Return on Home still opens Now Playing.",
+     "x": 0,
+     "y": 0,
+     "w": 375,
+     "h": 39,
+     "parent": [
+      0,
+      38
+     ],
+     "box": null,
+     "font": 18
+    },
+    {
+     "id": "btn_localmusic",
+     "label": "Library row",
+     "kind": "row",
+     "actions": [
+      "hide",
+      "font",
+      "text"
+     ],
+     "warn": "Hidden, the Library menu has no other route. Coverflow and Folder still reach your music.",
+     "x": 0,
+     "y": 39,
+     "w": 375,
+     "h": 39,
+     "parent": [
+      0,
+      38
+     ],
+     "box": null,
+     "font": 18
+    },
+    {
+     "id": "btn_coverflow",
+     "label": "Coverflow row",
+     "kind": "row",
+     "actions": [
+      "hide",
+      "font",
+      "text"
+     ],
+     "warn": "Coverflow has no other way in from Home, unless you use the Carousel layout.",
+     "x": 0,
+     "y": 78,
+     "w": 375,
+     "h": 39,
+     "parent": [
+      0,
+      38
+     ],
+     "box": null,
+     "font": 18
+    },
+    {
+     "id": "btn_folder",
+     "label": "Folder row",
+     "kind": "row",
+     "actions": [
+      "hide",
+      "font",
+      "text"
+     ],
+     "warn": "Folder browsing has no other route from Home.",
+     "x": 0,
+     "y": 117,
+     "w": 375,
+     "h": 39,
+     "parent": [
+      0,
+      38
+     ],
+     "box": null,
+     "font": 18
+    },
+    {
+     "id": "btn_eq",
+     "label": "EQ row",
+     "kind": "row",
+     "actions": [
+      "hide",
+      "font",
+      "text"
+     ],
+     "warn": "Hold Play/Pause on Now Playing still changes EQ.",
+     "x": 0,
+     "y": 156,
+     "w": 375,
+     "h": 39,
+     "parent": [
+      0,
+      38
+     ],
+     "box": null,
+     "font": 18
+    },
+    {
+     "id": "btn_rockbox",
+     "label": "Rockbox or Shortcut row",
+     "kind": "row",
+     "actions": [
+      "hide",
+      "font",
+      "text"
+     ],
+     "warn": "Hidden, your Shortcut goes too. Boot to: Rockbox still starts Rockbox.",
+     "x": 0,
+     "y": 195,
+     "w": 375,
+     "h": 39,
+     "parent": [
+      0,
+      38
+     ],
+     "box": null,
+     "font": 18
+    },
+    {
+     "id": "btn_stream",
+     "label": "Streaming row",
+     "kind": "row",
+     "actions": [
+      "hide",
+      "font",
+      "text"
+     ],
+     "warn": "Spotify, Tidal, Internet Radio and card apps open from here, with no other route.",
+     "x": 0,
+     "y": 234,
+     "w": 375,
+     "h": 39,
+     "parent": [
+      0,
+      38
+     ],
+     "box": null,
+     "font": 18
+    },
+    {
+     "id": "btn_settings",
+     "label": "Settings row",
+     "kind": "row",
+     "actions": [
+      "hide",
+      "font",
+      "text"
+     ],
+     "warn": "Quick Settings still has Playback and System buttons.",
+     "x": 0,
+     "y": 273,
+     "w": 375,
+     "h": 39,
+     "parent": [
+      0,
+      38
+     ],
+     "box": null,
+     "font": 18
+    }
+   ]
+  },
+  "saverscreen_page": {
+   "label": "Lock screen",
+   "origin": [
+    0,
+    0
+   ],
+   "elements": [
+    {
+     "id": "view_timeinfo",
+     "label": "Clock and battery",
+     "kind": "group",
+     "actions": [
+      "hide"
+     ],
+     "warn": "",
+     "x": 0,
+     "y": 65,
+     "w": 375,
+     "h": 103,
+     "parent": [
+      0,
+      0
+     ],
+     "box": null
+    },
+    {
+     "id": "clock_time",
+     "label": "Time",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 72,
+     "y": 0,
+     "w": 151,
+     "h": 50,
+     "parent": [
+      0,
+      65
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      103
+     ],
+     "font": 70
+    },
+    {
+     "id": "clock_date",
+     "label": "Date",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 72,
+     "y": 60,
+     "w": 205,
+     "h": 39,
+     "parent": [
+      0,
+      65
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      103
+     ],
+     "font": 42
+    },
+    {
+     "id": "label_battery",
+     "label": "Battery percent",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 232,
+     "y": 0,
+     "w": 42,
+     "h": 24,
+     "parent": [
+      0,
+      65
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      103
+     ],
+     "font": 20
+    },
+    {
+     "id": "img_battery",
+     "label": "Battery icon",
+     "kind": "image",
+     "actions": [
+      "hide"
+     ],
+     "warn": "",
+     "x": 235,
+     "y": 24,
+     "w": 34,
+     "h": 20,
+     "parent": [
+      0,
+      65
+     ],
+     "box": null
+    },
+    {
+     "id": "view_playinfo",
+     "label": "Now-playing card",
+     "kind": "group",
+     "actions": [
+      "hide",
+      "move",
+      "size"
+     ],
+     "warn": "",
+     "x": 20,
+     "y": 190,
+     "w": 335,
+     "h": 80,
+     "parent": [
+      0,
+      0
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      320
+     ]
+    },
+    {
+     "id": "scrlabel_title",
+     "label": "Song title",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 80,
+     "y": 14,
+     "w": 245,
+     "h": 28,
+     "parent": [
+      20,
+      190
+     ],
+     "box": [
+      0,
+      0,
+      335,
+      80
+     ],
+     "font": 20
+    },
+    {
+     "id": "scrlabel_artist",
+     "label": "Artist",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 80,
+     "y": 42,
+     "w": 220,
+     "h": 20,
+     "parent": [
+      20,
+      190
+     ],
+     "box": [
+      0,
+      0,
+      335,
+      80
+     ],
+     "font": 16
+    },
+    {
+     "id": "img_slide",
+     "label": "Swipe hint",
+     "kind": "image",
+     "actions": [
+      "hide",
+      "move",
+      "size",
+      "scale"
+     ],
+     "warn": "",
+     "x": 172,
+     "y": 285,
+     "w": 30,
+     "h": 16,
+     "parent": [
+      0,
+      0
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      320
+     ]
+    }
+   ]
+  },
+  "system_bar": {
+   "label": "Status bar",
+   "origin": [
+    0,
+    0
+   ],
+   "elements": [
+    {
+     "id": "label_eq",
+     "label": "EQ indicator",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "font"
+     ],
+     "warn": "",
+     "x": 0,
+     "y": 0,
+     "w": 28,
+     "h": 0,
+     "parent": [
+      0,
+      0
+     ],
+     "box": null,
+     "font": 16
+    },
+    {
+     "id": "img_bt",
+     "label": "Bluetooth",
+     "kind": "image",
+     "actions": [
+      "hide"
+     ],
+     "warn": "",
+     "x": 0,
+     "y": 0,
+     "w": 43,
+     "h": 0,
+     "parent": [
+      175,
+      0
+     ],
+     "box": null
+    },
+    {
+     "id": "img_wifi",
+     "label": "Wi-Fi",
+     "kind": "image",
+     "actions": [
+      "hide"
+     ],
+     "warn": "",
+     "x": 0,
+     "y": 0,
+     "w": 14,
+     "h": 0,
+     "parent": [
+      175,
+      0
+     ],
+     "box": null
+    },
+    {
+     "id": "label_clock",
+     "label": "Clock",
+     "kind": "text",
+     "actions": [
+      "hide",
+      "move",
+      "size",
+      "font",
+      "tint"
+     ],
+     "warn": "",
+     "x": 129,
+     "y": 0,
+     "w": 117,
+     "h": 30,
+     "parent": [
+      0,
+      0
+     ],
+     "box": [
+      0,
+      0,
+      375,
+      30
+     ],
+     "font": 16
+    }
+   ]
+  }
+ }
+}
