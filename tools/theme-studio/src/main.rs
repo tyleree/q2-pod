@@ -29,6 +29,7 @@ const EQ_JS: &str = include_str!("../ui/eq.js");
 const EQ_PAGE_JS: &str = include_str!("../ui/eq_page.js");
 const LIBRARY_PAGE_JS: &str = include_str!("../ui/library_page.js");
 const APP_JS: &str = include_str!("../ui/app.js");
+const WEB_JS: &str = include_str!("../ui/web.js");
 const CATALOGUE: &str = include_str!("../ui/catalogue.json");
 const PRESETS: &str = include_str!("../ui/presets.json");
 
@@ -586,6 +587,8 @@ fn serve(path: &str) -> Response<Cow<'static, [u8]>> {
         "/eq_page.js" => (EQ_PAGE_JS, "text/javascript; charset=utf-8"),
         "/library_page.js" => (LIBRARY_PAGE_JS, "text/javascript; charset=utf-8"),
         "/app.js" => (APP_JS, "text/javascript; charset=utf-8"),
+        // The web's host: index.html loads it, but here the page talks to this file and never makes one.
+        "/web.js" => (WEB_JS, "text/javascript; charset=utf-8"),
         "/catalogue.json" => (CATALOGUE, "application/json; charset=utf-8"),
         "/presets.json" => (PRESETS, "application/json; charset=utf-8"),
         _ => ("", "text/plain; charset=utf-8"),

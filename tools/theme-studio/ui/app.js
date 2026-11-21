@@ -185,7 +185,24 @@
     };
   }
 
-  const host = window.ipc && window.ipc.postMessage ? nativeHost() : mockHost();
+  // The exe's own host; else the web's (web.js), where a picked folder is the card; the mock on ?mock or ?card=.
+  const wantsMock = /[?&](mock|card)\b/.test(location.search) || !window.Q2WebHost;
+  const host = window.ipc && window.ipc.postMessage ? nativeHost() : wantsMock ? mockHost() : window.Q2WebHost();
+  // The exe and the mock find drives by themselves and name a card by its letter.
+  host.pick ??= async () => true;
+  host.at ??= (letter) => `${letter}:`;
+  host.drive ??= (letter) => `drive ${letter}`;
+  const NO_PICKER = 'This browser can\'t write to a card. Use Export and copy the file to the card as Q2Pod/theme.txt, or open this page in Chrome or Edge.';
+
+  // On the web, the visitor points at the card; false when they back out.
+  async function pickCard() {
+    try {
+      return await host.pick();
+    } catch (error) {
+      notice('The card could not be opened', error.message);
+      return false;
+    }
+  }
 
   /* ---------- Theme changes ---------- */
 
@@ -884,11 +901,12 @@
   async function findAlbums() {
     $('artFind').disabled = true;
     try {
-      const q2 = (await host.call('drives')).sort(driveOrder)[0];
+      let q2 = (await host.call('drives')).sort(driveOrder)[0];
+      if (!q2 && host.web && (await pickCard())) q2 = (await host.call('drives'))[0];
       if (!q2) {
-        toast('Connect the card first.');
+        toast(host.web ? 'Choose the card first.' : 'Connect the card first.');
       } else {
-        toast(`Looking through ${q2.letter}:…`);
+        toast(`Looking through ${host.at(q2.letter)}…`);
         albums.letter = q2.letter;
         albums.list = await host.call('albums', { letter: q2.letter });
         $('artFilter').hidden = false;
@@ -1396,7 +1414,7 @@
   // While the card is being written the dialog stays open, so the result is always seen.
   function setBusy(on) {
     card.busy = on;
-    for (const id of BUSY_LOCKS) $(id).disabled = on;
+    for (const id of BUSY_LOCKS) $(id).disabled = on || (id === 'driveRefresh' && host.web && !host.canPick);
     $('saveGo').disabled = on || !card.letter;
   }
 
@@ -1405,6 +1423,7 @@
   }
 
   function driveName(drive) {
+    if (drive.title) return drive.title; // the web's card has no letter
     const label = drive.label ? ` ${drive.label}` : '';
     const kind = drive.isQ2 ? ' (Q2 card)' : drive.removable ? ' (removable)' : '';
     return `${drive.letter}:${label}${kind}`;
@@ -1432,7 +1451,7 @@
 
     const select = $('driveSelect');
     select.textContent = '';
-    const blank = new Option(card.drives.length ? 'Choose a drive' : 'No drives found', '');
+    const blank = new Option(card.drives.length ? 'Choose a drive' : host.web ? 'No card chosen' : 'No drives found', '');
     select.add(blank);
     for (const drive of card.drives) select.add(new Option(driveName(drive), drive.letter));
     select.value = pick ?? '';
@@ -1446,6 +1465,9 @@
 
   function driveNote(letter, drive, text, parsed) {
     const q2Cards = card.drives.filter((d) => d.isQ2).length;
+    if (!letter && host.web && !card.drives.length) {
+      return host.canPick ? 'Press Choose card, then pick the drive of your Q2\'s card.' : NO_PICKER;
+    }
     if (!letter) {
       if (q2Cards > 1) return 'More than one Q2 card found. Choose one.';
       if (q2Cards) return 'Choose a drive to save to.';
@@ -1530,13 +1552,13 @@
     setBusy(false);
     picturesChanged = false;
     markSaved();
-    $('doneText').textContent = `Your theme is saved to drive ${letter}.`;
+    $('doneText').textContent = `Your theme is saved to ${host.drive(letter)}.`;
     showSavePart('saveDone');
     $('doneClose').focus();
   }
 
   function askRemove() {
-    $('confirmText').textContent = `The theme file on ${card.letter}: is deleted. The theme you are editing here stays open.`;
+    $('confirmText').textContent = `The theme file on ${host.at(card.letter)} is deleted. The theme you are editing here stays open.`;
     $('confirmError').hidden = true;
     showSavePart('saveConfirm');
     $('confirmKeep').focus();
@@ -1561,10 +1583,10 @@
     }
     setBusy(false);
     if (!removed) {
-      refuseRemove(`No theme was found on ${letter}:. Check the card is still connected.`);
+      refuseRemove(`No theme was found on ${host.at(letter)}. Check the card is still connected.`);
       return;
     }
-    $('removedText').textContent = `The theme is removed from drive ${letter}.`;
+    $('removedText').textContent = `The theme is removed from ${host.drive(letter)}.`;
     showSavePart('saveRemoved');
     $('removedClose').focus();
   }
@@ -1612,7 +1634,8 @@
       const parsed = text === null ? null : core.parse(text, cat);
       if (!parsed?.ok) continue;
       const name = parsed.theme.name ? `“${parsed.theme.name}”` : 'A theme';
-      $('loadText').textContent = `${name} is on the card in ${drive.letter}:. Load it to keep working on it?`;
+      $('loadText').textContent = host.web ? `${name} is on this card. Load it to keep working on it?`
+        : `${name} is on the card in ${host.at(drive.letter)}. Load it to keep working on it?`;
       card.letter = drive.letter;
       card.text = text;
       $('dlgLoad').showModal();
@@ -1809,7 +1832,17 @@
       showSaveError(null);
       chooseDrive(event.target.value || null);
     });
-    $('driveRefresh').addEventListener('click', refreshDrives);
+    $('driveRefresh').addEventListener('click', async () => {
+      if (await pickCard()) await refreshDrives();
+    });
+    if (host.web) {
+      $('driveRefresh').textContent = 'Choose card…';
+      $('driveRefresh').disabled = !host.canPick;
+      // A tab closes without asking the page, so the browser asks when work would be lost.
+      window.addEventListener('beforeunload', (event) => {
+        if (unsaved() || eqPage.unsaved()) event.preventDefault();
+      });
+    }
     $('saveCancel').addEventListener('click', closeSave);
     $('saveGo').addEventListener('click', saveToCard);
     $('saveRemove').addEventListener('click', askRemove);
@@ -1900,6 +1933,17 @@
     document.documentElement.style.setProperty('--s', view.scale);
   }
 
+  // Said once to each visitor: official Q2 Pod does not read themes yet, and they should know first.
+  function firmwareNote() {
+    try {
+      if (localStorage.getItem('q2-firmware-note')) return;
+      localStorage.setItem('q2-firmware-note', '1');
+    } catch {
+      // No storage: say it each visit.
+    }
+    notice('Before you start', "Themes only show on a Q2 running the card themes test firmware. Official Q2 Pod does not read them yet. The EQ tab's presets work on any Q2 Pod.");
+  }
+
   async function start() {
     cat = await (await fetch('catalogue.json')).json();
     for (const [page, items] of Object.entries(WORDING)) {
@@ -1925,6 +1969,9 @@
     bindEvents();
     fitPreview();
     refresh();
+    // ?demo: a private folder the browser keeps stands in for a card, to try the page without one.
+    if (host.web && new URLSearchParams(location.search).has('demo')) await host.useBrowserFolder();
+    if (host.web) firmwareNote();
     offerCardTheme();
   }
 

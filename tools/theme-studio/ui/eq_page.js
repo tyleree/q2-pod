@@ -35,6 +35,19 @@
   const axisHertz = (f) => (f >= 1000 ? `${f / 1000}k` : `${f}`);
 
   window.Q2EqPage = function make(host, { toast, notice, changed }) {
+    const noPicker = Boolean(host.web && !host.canPick); // a browser that can't write to a card
+    const NO_PICKER = "This browser can't write to a card. Use Export and copy the file into the card's EQ folder, or open this page in Chrome or Edge.";
+
+    // On the web, the visitor points at the card; false when they back out.
+    async function pickCard() {
+      try {
+        return await host.pick();
+      } catch (error) {
+        notice('The card could not be opened', error.message);
+        return false;
+      }
+    }
+
     let preset = eq.normalize(eq.newPreset());
     let savedState = JSON.stringify(preset);
     let picked = 0;
@@ -468,7 +481,7 @@
       for (const button of document.querySelectorAll('#eqIemList .pin, #eqCardList .pin')) {
         const on = pins.includes(pinName(button.dataset.pin));
         button.textContent = on ? '★' : '☆';
-        button.title = !card.letter ? 'Connect the card to pin presets.' : on ? 'Unpin this preset' : 'Pin this preset';
+        button.title = !card.letter ? (host.web ? 'Choose the card to pin presets.' : 'Connect the card to pin presets.') : on ? 'Unpin this preset' : 'Pin this preset';
         button.setAttribute('aria-label', `${on ? 'Unpin' : 'Pin'} ${button.dataset.pin}`);
         button.setAttribute('aria-pressed', String(on));
         button.disabled = !ready;
@@ -503,7 +516,7 @@
         }
         list.append(row);
       });
-      $('eqPinNote').textContent = !card.letter ? 'Connect the card to pin presets.'
+      $('eqPinNote').textContent = !card.letter ? (host.web ? 'Choose the card to pin presets.' : 'Connect the card to pin presets.')
         : pins.length ? 'Tapping EQ on Now Playing, or turning the wheel in Home\'s EQ, flips through these in this order, and Off.'
           : 'Press a star to pin a preset. With none pinned, the Q2 flips through every preset saved on it.';
       syncPins();
@@ -648,6 +661,7 @@
     }
 
     function driveName(drive) {
+      if (drive.title) return drive.title; // the web's card has no letter
       const label = drive.label ? ` ${drive.label}` : '';
       const kind = drive.isQ2 ? ' (Q2 card)' : drive.removable ? ' (removable)' : '';
       return `${drive.letter}:${label}${kind}`;
@@ -657,7 +671,7 @@
 
     function fillDrives(select) {
       select.textContent = '';
-      select.add(new Option(card.drives.length ? 'Choose a drive' : 'No drives found', ''));
+      select.add(new Option(card.drives.length ? 'Choose a drive' : host.web ? 'No card chosen' : 'No drives found', ''));
       for (const drive of card.drives) select.add(new Option(driveName(drive), drive.letter));
       select.value = card.letter ?? '';
     }
@@ -716,8 +730,9 @@
         list.append(row);
       }
       $('eqCardNote').textContent = problem
-        ?? (!card.letter ? 'No Q2 card found yet. Connect it with its USB tile on storage, or choose a drive. It shows here by itself, and a Q2 can take a few minutes to appear.'
-          : card.names.length ? '' : `Nothing in the EQ folder on ${card.letter}: yet. Press a star, or Save to Q2, to add a preset. Presets saved on the Q2 itself stay on the Q2, so they don't show here.`);
+        ?? (!card.letter && host.web ? (host.canPick ? 'No card chosen yet. Press Choose card, then pick the drive of your Q2\'s card.' : NO_PICKER)
+          : !card.letter ? 'No Q2 card found yet. Connect it with its USB tile on storage, or choose a drive. It shows here by itself, and a Q2 can take a few minutes to appear.'
+          : card.names.length ? '' : `Nothing in the EQ folder on ${host.at(card.letter)} yet. Press a star, or Save to Q2, to add a preset. Presets saved on the Q2 itself stay on the Q2, so they don't show here.`);
     }
 
     async function refreshCard() {
@@ -728,11 +743,12 @@
 
     // The button's answer when nothing on the page would change.
     async function refreshByHand() {
+      if (!(await pickCard())) return;
       $('eqCardRefresh').disabled = true;
       await refreshCard();
-      $('eqCardRefresh').disabled = false;
-      if (!card.letter) toast('No Q2 card found yet. Check its USB tile is on storage, and that the cable carries data.');
-      else toast(`Checked ${card.letter}: and found ${card.names.length} ${card.names.length === 1 ? 'preset' : 'presets'}.`);
+      $('eqCardRefresh').disabled = noPicker;
+      if (!card.letter) toast(host.web ? 'That folder does not look like a Q2 card. Choose it in the list to use it anyway.' : 'No Q2 card found yet. Check its USB tile is on storage, and that the cable carries data.');
+      else toast(`Checked ${host.at(card.letter)} and found ${card.names.length} ${card.names.length === 1 ? 'preset' : 'presets'}.`);
     }
 
     async function lookForCard() {
@@ -768,9 +784,10 @@
     function syncSave() {
       const file = eq.fileName(preset.name);
       const on = card.letter;
-      $('eqSavePath').textContent = on ? `${on}:\\EQ\\${file}` : `EQ\\${file}`;
+      $('eqSavePath').textContent = host.web ? `EQ/${file}` : on ? `${on}:\\EQ\\${file}` : `EQ\\${file}`;
       const taken = on && existing(file);
-      $('eqSaveInfo').textContent = !on ? 'Connect the card, then press Refresh, or choose a drive.'
+      $('eqSaveInfo').textContent = !on && host.web ? (host.canPick ? 'Press Choose card, then pick the drive of your Q2\'s card.' : NO_PICKER)
+        : !on ? 'Connect the card, then press Refresh, or choose a drive.'
         : taken ? 'A preset with this name is on the card. Saving replaces it. If the Q2 already has this preset, it keeps its copy until you import it again from EQ settings.'
           : '';
       $('eqSaveGo').textContent = taken ? 'Replace' : 'Save';
@@ -803,7 +820,7 @@
 
     function setBusy(on) {
       card.busy = on;
-      for (const id of ['eqSaveCancel', 'eqSaveDrive', 'eqSaveRefresh']) $(id).disabled = on;
+      for (const id of ['eqSaveCancel', 'eqSaveDrive', 'eqSaveRefresh']) $(id).disabled = on || (id === 'eqSaveRefresh' && noPicker);
       syncSave();
     }
 
@@ -822,7 +839,7 @@
       }
       setBusy(false);
       markSaved();
-      $('eqDoneText').textContent = `“${eq.nameOfFile(file)}” is saved to the EQ folder on drive ${letter}.`;
+      $('eqDoneText').textContent = `“${eq.nameOfFile(file)}” is saved to the EQ folder on ${host.drive(letter)}.`;
       showSavePart('eqSaveDone');
       $('eqDoneClose').focus();
       await readNames();
@@ -947,7 +964,15 @@
         fillDrives($('eqDrive'));
         await listForSave();
       });
-      $('eqSaveRefresh').addEventListener('click', refreshSave);
+      $('eqSaveRefresh').addEventListener('click', async () => {
+        if (await pickCard()) await refreshSave();
+      });
+      if (host.web) {
+        for (const id of ['eqCardRefresh', 'eqSaveRefresh']) {
+          $(id).textContent = 'Choose card…';
+          $(id).disabled = noPicker;
+        }
+      }
       $('eqSaveCancel').addEventListener('click', () => $('dlgEqSave').close());
       $('eqSaveGo').addEventListener('click', saveToCard);
       $('eqDoneClose').addEventListener('click', () => $('dlgEqSave').close());
