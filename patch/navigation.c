@@ -1918,7 +1918,7 @@ static void paint_caps(void *w, void *canvas) {
     if (!w || !P(canvas, CANVAS_LCD)) return;
     const theme_t *T = theme();
     if (w == st.bar_idle) {
-        if (T->caps_mark) {
+        if (T->caps_mark == CAPS_UPPER) {
             draw_spaced(canvas, widget_get_text(w), 0, (I(w, W_H) - MARK_PX) / 2, MARK_PX,
                         RGBA(0xaaaaaa), 375);
             return;
@@ -1957,7 +1957,8 @@ static void paint_caps(void *w, void *canvas) {
             st.np_marquee = timer_add(np_marquee, (void *)0, MARQUEE_HOLD_MS);
         return;
     }
-    if (!T->caps_home || tk_strcmp(widget_get_type(w), "hscroll_label") || !coverflow_home_owns(w))
+    if (T->caps_home != CAPS_UPPER || tk_strcmp(widget_get_type(w), "hscroll_label") ||
+        !coverflow_home_owns(w))
         return;
     unsigned color = RGBA(SUDO_MUTED);
     for (void *p = w; p; p = P(p, W_PARENT))
@@ -2901,7 +2902,7 @@ void list_toggle(void *label, const char *title, int on) {
         image_set_draw_type(image, IMAGE_DRAW_CENTER);
         widget_move_resize(label, I(label, W_X), 0, x - I(label, W_X) - 8, I(button, W_H));
     }
-    widget_set_text_utf8(label, title);
+    word_text(label, title);
     image_base_set_image(image, on ? "switch_on" : "switch_off");
 }
 
@@ -2921,8 +2922,8 @@ static void value_row(void *label, const char *title, const char *value, int w) 
         hscroll_label_set_ellipses(text, 1);
         widget_move_resize(label, I(label, W_X), 0, x - I(label, W_X), I(button, W_H));
     }
-    widget_set_text_utf8(label, title);
-    widget_set_text_utf8(text, value);
+    word_text(label, title);
+    word_text(text, value);
     theme_font(text, ROLE_TITLE, FONT_ROW);
 }
 void list_value(void *label, const char *title, const char *value) {
@@ -2985,7 +2986,7 @@ int ringnav_sleeptimer(void *win, void *ctx) {
  * (Accent's name) under Accent. */
 void row_label(void *label, const char *text) {
     if (!theme()->set_text) {
-        widget_set_text_utf8(label, text);
+        word_text(label, text);
         return;
     }
     const char *value = text;
@@ -5171,9 +5172,11 @@ static int title_due(const void *info) {
     return 0;
 }
 
-/* The bar's title written as t, when it changes, in the face that has its characters. */
-static void bar_title_write(const char *t) {
-    char now[256]; /* stock writes nothing unless all of it fits */
+/* The bar's title written as t, when it changes, in the face that has its characters; from, if
+ * any, is the label t is read from (title_lower: a theme's lowercase takes only a word). */
+static void bar_title_write(const char *t, void *from) {
+    char now[256], low[256]; /* stock writes nothing unless all of it fits */
+    t = title_lower(t, from, low, sizeof low);
     if (widget_get_text_utf8(st.bar_title, now, sizeof now) || tk_strcmp(now, t)) {
         widget_set_text_utf8(st.bar_title, t);
         theme_font(st.bar_title, ROLE_BAR, FONT_ROW);
@@ -5217,14 +5220,16 @@ void bar_title_sync(void *win) {
         while (*a && *a == *b) ++a, ++b;
         if (*a == *b) return;
     }
+    void *from = (void *)0;
     if (!t) {
         *s = 0;
         if (st.title_lbl) widget_get_text_utf8(st.title_lbl, s, sizeof s);
         t = !tk_strcmp(s, "Channel Balance") ? "Balance" /* English's only */
             : !tk_strcmp(s, "(null)")        ? ""        /* stock's "%s" of a NULL name: no title */
                                              : s;
+        if (t == s) from = st.title_lbl;
     }
-    bar_title_write(t);
+    bar_title_write(t, from);
 }
 
 /* The bar named for win by its name alone (Now Playing), on top or not: a dialog that ends Cover
@@ -5232,7 +5237,7 @@ void bar_title_sync(void *win) {
 void bar_title_name(void *win) {
     void *label = 0;
     const char *t = st.bar_title && win ? bar_title_of(win, &label) : (const char *)0;
-    if (t) bar_title_write(t);
+    if (t) bar_title_write(t, (void *)0);
 }
 
 /* A page_title's caption was an empty page's message, and the bar holds captions: the message stays
@@ -5274,6 +5279,7 @@ int bar_title_fits(void *label) {
  * Home's art is also checked when Home is painted under another window. */
 int ringnav_paint_bg(void *w, void *canvas) {
     st.paint_w = w;
+    caps_lower(w);
     quick_fill(w);
     confirm_prompt(w, canvas);
     toast_paint(w, canvas);
@@ -5425,7 +5431,8 @@ unsigned *ringnav_style_color(unsigned *color, void *style, const char *name, un
             *color &= 0xffffff;
             return color;
         }
-        if (st.paint_w == st.bar_idle || (T->caps_home && coverflow_home_owns(st.paint_w))) {
+        if (st.paint_w == st.bar_idle ||
+            (T->caps_home == CAPS_UPPER && coverflow_home_owns(st.paint_w))) {
             *color &= 0xffffff; /* paint_caps draws it */
             return color;
         }

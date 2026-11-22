@@ -149,7 +149,7 @@ MINIMAL = {
     **MOTION_TODAY,
     'page_row': 48, 'page_detail': 64, 'page_title_h': 48, 'page_x': 36, 'page_cap_y': 4, 'page_cap_h': 32, 'page_det_y': 36, 'page_det_h': 24,
     'id': 'minimal', 'index': 0, 'name': 'Minimal', 'accents': 0x1ff, 'accent_key': 'MINIMAL_ACCENT',
-    'painter[PAINT_SELECTION]': 0, 'painter[PAINT_BAR]': 0, 'painter[PAINT_BATTERY]': 0, 'chevron_home': 0, 'chevron_sel': 0, 'caps_mark': 1, 'caps_home': 1, 'caps_np': 1,
+    'painter[PAINT_SELECTION]': 0, 'painter[PAINT_BAR]': 0, 'painter[PAINT_BATTERY]': 0, 'chevron_home': 0, 'chevron_sel': 0, 'caps_mark': 1, 'caps_home': 1, 'caps_np': 1, 'caps_list': 0,
     'icons_mono': 1, 'icons_badge_muted': 1, 'icons_addon_mono': 1, 'icons_badge_ink': 0, 'art_final': 0, 'page_fill': 0, 'qs_ground': 0, 'date_gap': 0, 'font[ROLE_NP]': 0, 'font[ROLE_INFO]': 0, 'font_px[ROLE_INFO]': 0, 'np_info_value': 0, 'np_album_op': 0, 'np_state_op': 0,
     'home_top': 8, 'home_full_row': 375, 'home_text_x': 39, 'home_label_end[0]': 8, 'home_label_end[1]': 33,
     'home_pane': (), 'pane_shadow': 0, 'pane_shadow_w': 0, 'pane_shadow_a': (), 'pane_light_a': 0, 'pane_icon_x': 0, 'pane_icon_y': 0, 'pane_note_x': 0, 'pane_note_y': 0, 'pane_count_y': 0, 'pane_count_w': 0, 'pane_count_px': 0, 'pane_svc_x': 0, 'pane_svc_y': 0, 'pane_svc_px': 0,
@@ -318,6 +318,7 @@ C = '<colorSchemes accents="cobalt"/><option setting="accent" key="ACCENT" defau
     (C + '<view name="pages"><element name="quick" light_ground="#f2f2f7"/></view>', None, "pages.quick.light_ground and pages.date.gap are the flat look's"),
     (C + '<view name="pages"><element name="own" painter="classic-light"/><element name="date" gap="6"/></view>', None,
      "pages.quick.light_ground and pages.date.gap are the flat look's"),
+    ('<view name="list"><element name="row" caps="1"/></view>', None, 'list.row.caps: 1 has no painter; 0 or lower'),
 ])
 def test_validate_rejects(body, attrs, message):
     t = resolved(body, *([attrs] if attrs else []))
@@ -456,6 +457,18 @@ def test_hyphen_in_an_id_is_a_c_name():
     assert t['id'] == 'a-b' and theme.c_name(t) == 'a_b'
 
 
+def test_caps_take_lower():
+    """caps="lower" (lowercase.c): the bar's title, Home's rows and a page's list words in lowercase; 0 and 1 read as
+    before, 1 Minimal's small capitals, and a list's words keep their case unless asked."""
+    t = resolved('<view name="bar"><element name="title" caps="lower"/></view><view name="home"><element name="rows" caps="lower"/>'
+                 '</view><view name="list"><element name="row" caps="lower"/></view>')
+    assert (t['caps_mark'], t['caps_home'], t['caps_list']) == (2, 2, 2) and theme.validate(t, 't.xml') is None
+    assert [(t['caps_mark'], t['caps_home'], t['caps_list']) for t in set0_builtins()] == [(1, 1, 0), (0, 0, 0)]
+    assert theme.CHOICES['list.row.caps']['lower'] == 'CAPS_LOWER'
+    with pytest.raises(theme.ThemeError, match='bar.title.caps: unknown value upper'):
+        resolved('<view name="bar"><element name="title" caps="upper"/></view>')
+
+
 def test_home_rows_font_is_the_home_role():
     t = resolved('<view name="home"><element name="rows" font="classic-light" font_px="27"/></view>')
     assert (t['font[ROLE_HOME]'], t['font_px[ROLE_HOME]'], t['font[ROLE_NP]'], t['font_px[ROLE_NP]']) == (2, 27, 0, 0)
@@ -465,8 +478,8 @@ def test_resolve_takes_a_long_name():
     assert resolved('', f'id="t" name="{"é" * 24}" index="2" extends="minimal"')['name'] == 'é' * 24
 
 
-MINIMAL_FIELDS = [('name', '"Minimal"'), ('painter[PAINT_SELECTION]', 'SEL_CARD'), ('painter[PAINT_BAR]', 'BAR_FLAT'), ('painter[PAINT_BATTERY]', 'BATT_STOCK'), ('chevron_home', 0), ('chevron_sel', 0), ('art_x', 0), ('art_text_x', 0), ('art_text_end', 0), ('art_placeholder', 0), ('row_text_end', 0), ('sep', '{{0}, {0}}'), ('font[ROLE_TALL]', 'FONT_DEFAULT'), ('font_px[ROLE_TALL]', 0), ('chevron_x', 0), ('home_chevron_x', 0), ('letter_raw', 0), ('letter_px', 0), ('caps_mark', 1),
-                  ('caps_home', 1), ('caps_np', 1), ('icons_mono', 1), ('icons_badge_muted', 1), ('icons_addon_mono', 1), ('icons_badge_ink', 0),
+MINIMAL_FIELDS = [('name', '"Minimal"'), ('painter[PAINT_SELECTION]', 'SEL_CARD'), ('painter[PAINT_BAR]', 'BAR_FLAT'), ('painter[PAINT_BATTERY]', 'BATT_STOCK'), ('chevron_home', 0), ('chevron_sel', 0), ('art_x', 0), ('art_text_x', 0), ('art_text_end', 0), ('art_placeholder', 0), ('row_text_end', 0), ('sep', '{{0}, {0}}'), ('font[ROLE_TALL]', 'FONT_DEFAULT'), ('font_px[ROLE_TALL]', 0), ('chevron_x', 0), ('home_chevron_x', 0), ('letter_raw', 0), ('letter_px', 0), ('caps_mark', 'CAPS_UPPER'),
+                  ('caps_home', 'CAPS_UPPER'), ('caps_np', 1), ('caps_list', 'CAPS_NONE'), ('icons_mono', 1), ('icons_badge_muted', 1), ('icons_addon_mono', 1), ('icons_badge_ink', 0),
                   ('font[ROLE_NP]', 'FONT_DEFAULT'), ('font_px[ROLE_NP]', 0), ('font[ROLE_INFO]', 'FONT_DEFAULT'), ('font_px[ROLE_INFO]', 0), ('np_info_value', '{0, 0}'), ('np_album_op', 0), ('np_state_op', 0), ('home_top', 8), ('home_full_row', 375),
                   ('home_text_x', 39), ('home_label_end[0]', 8), ('home_label_end[1]', 33), ('font[ROLE_HOME]', 'FONT_DEFAULT'), ('font_px[ROLE_HOME]', 0), ('home_pane', '{{0}, {0}}'), ('pane_shadow', 0), ('pane_shadow_w', 0), ('pane_shadow_a', '{0}'), ('pane_light_a', 0), ('pane_icon_x', 0), ('pane_icon_y', 0), ('pane_note_x', 0), ('pane_note_y', 0), ('pane_count_y', 0), ('pane_count_w', 0), ('pane_count_px', 0), ('pane_svc_x', 0), ('pane_svc_y', 0), ('pane_svc_px', 0), ('set_top', 8), ('set_text', 0), ('painter[PAINT_SCRUB]', 'SCRUB_STOCK'), ('painter[PAINT_VOLUME]', 'VOL_STOCK'), ('painter[PAINT_CONFIRM]', 'CONFIRM_STOCK'), ('painter[PAINT_PAGES]', 'PAGES_STOCK'), ('art_final', 0), ('page_fill', '{0, 0}'), ('qs_ground', 0), ('date_gap', 0), ('np_rows[0]', '{0}'), ('np_rows[1]', '{0}'), ('np_rows[2]', '{0}'), ('np_rows[3]', '{0}'), ('np_bar', 4),
                   ('np_scrub', 8), ('np_track', '{{0}, {0}}'), ('np_fill', '{0}'), ('art_square', 0), ('font[ROLE_TITLE]', 'FONT_DEFAULT'), ('font[ROLE_META]', 'FONT_DEFAULT'),

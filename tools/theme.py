@@ -40,6 +40,8 @@ CHOICES = {'list.selection.painter': {'card': 'SEL_CARD', 'stops': 'SEL_STOPS', 
            'pages.own.painter': {'stock': 'PAGES_STOCK', 'classic-light': 'PAGES_CLASSIC_LIGHT', 'flat': 'PAGES_FLAT',
                                  'classic-light+flat': 'PAGES_CLASSIC_FLAT'},
            **dict.fromkeys(('playing.title.font', 'playing.info.font', 'home.rows.font', 'list.row.font', 'list.row.meta_font', 'list.row.tall_font', 'bar.title.font'), FONTS),
+           # caps: 1 Minimal's small capitals (paint_caps), lower the firmware's words in lowercase (lowercase.c)
+           **dict.fromkeys(('bar.title.caps', 'home.rows.caps', 'list.row.caps'), {'0': 'CAPS_NONE', '1': 'CAPS_UPPER', 'lower': 'CAPS_LOWER'}),
            'playing.layout': {'ipod': 'NP_IPOD', 'centred': 'NP_CENTRED'},
            'scheme.mode': {'derive': 'SCHEME_DERIVE', 'light': 'SCHEME_LIGHT', 'dark': 'SCHEME_DARK'}}
 # coverflow.shelf's thumb: each value's top (docs/internals.md#coverflow-thumb); fold_near past 50 would
@@ -101,9 +103,10 @@ SCHEMA = {k.path: k for k in (
     key('home.chevron.x', 'home_chevron_x', 'int', 375),  # ... and in Split's list
     key('list.letter.raw', 'letter_raw', 'bool'),  # the fast-scroll letter's colours are final in both halves
     key('list.letter.px', 'letter_px', 'int', 64),  # ... and its size, 0: LETTER_PX
-    key('bar.title.caps', 'caps_mark', 'bool'),
-    key('home.rows.caps', 'caps_home', 'bool'),
+    key('bar.title.caps', 'caps_mark', 'enum'),  # the idle mark's capitals; lower: the bar's title in lowercase
+    key('home.rows.caps', 'caps_home', 'enum'),
     key('playing.album.caps', 'caps_np', 'bool'),
+    key('list.row.caps', 'caps_list', 'enum'),  # lower: the firmware's words on a page's list in lowercase
     key('list.icons.mono', 'icons_mono', 'bool'),
     key('list.icons.badge_muted', 'icons_badge_muted', 'bool'),
     key('list.icons.addon_mono', 'icons_addon_mono', 'bool'),
@@ -923,6 +926,8 @@ def validate(t, name):
     flat = t['painter[PAINT_PAGES]'] & list(CHOICES['pages.own.painter']).index('flat')
     if t['art_final'] and t['id'] != 'classic-light' and not flat:  # navigation.c's image hook knows its names alone
         err('pages.own: art_final is for classic-light\'s own images and the flat look\'s only')
+    if t['caps_list'] == list(CHOICES['list.row.caps']).index('1'):
+        err('list.row.caps: 1 has no painter; 0 or lower')
     if (t['qs_ground'] or t['date_gap']) and not flat:
         err('pages.quick.light_ground and pages.date.gap are the flat look\'s')
     for end in ('top', 'bottom') if t['sb_w'] else ():  # the thumb's round end gives its corner pixel to the glass

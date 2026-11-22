@@ -879,7 +879,7 @@ static unsigned unflipped(unsigned v) { return unflip(v) * 0x010101u; }
 int text_at(void *canvas, const char *s, int x, int y, int h, unsigned px, unsigned color,
             int align) {
     unsigned wide[40], n = 0;
-    int cw[40], w = 0, caps = theme()->caps_home, fpx = (int)px;
+    int cw[40], w = 0, caps = theme()->caps_home == CAPS_UPPER, fpx = (int)px;
     for (; s[n] && n < 40; ++n)
         wide[n] = caps && s[n] >= 'a' && s[n] <= 'z' ? (unsigned)s[n] - 32 : (unsigned char)s[n];
     if (!n) return 0;

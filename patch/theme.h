@@ -26,6 +26,9 @@ enum { NP_ROWS = 31 }; /* theme_t.np_rows[][]: the rows painter's most rows */
 /* painter[PAINT_SELECTION]: Minimal's card, Classic's stops, Modern's bar */
 enum { SEL_CARD, SEL_STOPS, SEL_BAR };
 enum { BAR_FLAT, BAR_GLOSS }; /* painter[PAINT_BAR]: the status bar's fill (Classic gloss) */
+/* theme_t.caps_mark, caps_home, caps_list: Minimal's small capitals (paint_caps), or the firmware's
+ * words in lowercase (lowercase.c) */
+enum { CAPS_NONE, CAPS_UPPER, CAPS_LOWER };
 enum {
     BATT_STOCK,
     BATT_CLASSIC_LIGHT
@@ -153,9 +156,9 @@ typedef struct {
     unsigned short recall_ms; /* a remembered row's glide; 0: shown at once */
     unsigned char bump_px;    /* the wheel's bump at a list's end */
     unsigned char painter[PAINTER_N];
-    unsigned char chevron_home, chevron_sel, set_text, caps_mark, caps_home, caps_np, icons_mono,
-        icons_badge_muted, icons_addon_mono, icons_badge_ink, art_final, np_album_op,
-        np_state_op;                             /* flags 0/1; *_op 0/255 */
+    unsigned char chevron_home, chevron_sel, set_text, caps_mark, caps_home, caps_np, caps_list,
+        icons_mono, icons_badge_muted, icons_addon_mono, icons_badge_ink, art_final, np_album_op,
+        np_state_op; /* flags 0/1, caps_* CAPS_* but caps_np; *_op 0/255 */
     unsigned char font[ROLE_N], font_px[ROLE_N]; /* FONT_*; px 0: the style's size */
     stops_t batt;       /* BATT_CLASSIC_LIGHT: the level's stops, a hue in both halves */
     stops_t batt_empty; /* BATT_CLASSIC_LIGHT: the rows past the level */

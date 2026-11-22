@@ -674,6 +674,9 @@ static inline unsigned script_upper(unsigned c) {
         return (c - 1) | 1; /* pairs, the capital odd */
     return c == 0x4cf ? 0x4c0 : c;
 }
+/* c's small letter for a theme's lowercase (lowercase.c): A to Z alone; every other character,
+ * other scripts' too, is c, so a word stays in the face that drew it. */
+static inline unsigned script_lower(unsigned c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
 void bar_title_sync(void *win); /* navigation.c: Classic's bar title names win */
 void bar_title_name(void *win); /* navigation.c: names win by its name, on top or not */
 void np_mark_add(void *const *image, unsigned n); /* np_marks.c: the flat look takes them */
