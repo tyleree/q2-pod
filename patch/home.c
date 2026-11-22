@@ -6,7 +6,7 @@
 static void *library_row(void *view, const char *icon, int (*click)(void *, void *), void *ctx,
                          const char *text, int into) {
     void *label = list_row_core(view, icon, click, ctx, into ? 210 : 260, into);
-    widget_set_text_utf8(label, text);
+    word_text(label, text);
     return P(P(label, W_PARENT), W_PARENT);
 }
 

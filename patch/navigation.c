@@ -3355,8 +3355,8 @@ int ringnav_powermanager(void *win, void *ctx) {
     pod_rows(win, "scroll_view_powermanager", POD_SMART_WIFI, 1, icons + 3);
     pod_rows(win, "scroll_view_powermanager", POD_CARMODE, 1, icons + 2);
     if (view) /* battery.c's page */
-        widget_set_text_utf8(list_row_into(view, "system_powermanager", battery_history, 0),
-                             "Battery History");
+        word_text(list_row_into(view, "system_powermanager", battery_history, 0),
+                  "Battery History");
     boot_row(view);
     return result;
 }
@@ -3539,8 +3539,7 @@ int ringnav_audioset(void *win, void *ctx) {
     resume_row(list_row_into(view, "playset_memplay", xfade_open, (void *)2)); /* crossfade.c */
     mono_row(list_row(view, "playset_balance", mono_click, 0));
     swap_row(list_row(view, "playset_balance", swap_click, 0));
-    widget_set_text_utf8(list_row_into(view, "playset_folderjump", library_open, 0),
-                         "Library & Folders");
+    word_text(list_row_into(view, "playset_folderjump", library_open, 0), "Library & Folders");
     widget_set_tr_text(
         list_row_into(view, "playset_maxvol", to_page, (void *)"playset/maxvol_page"),
         "playset_maxvol");
@@ -6275,19 +6274,18 @@ int ringnav_display(void *win, void *ctx) {
         setting_row(view, 7);
         night_row(list_row_into(view, "display_backlight", xfade_open, (void *)3));
         for (int i = DISPLAY_APPEARANCE; i <= DISPLAY_COVERFLOW; ++i)
-            widget_set_text_utf8(list_row_into(view, sub_icons[i], display_open, (void *)(long)i),
-                                 titles[i]);
+            word_text(list_row_into(view, sub_icons[i], display_open, (void *)(long)i), titles[i]);
         reorder(view, main_order, sizeof main_order);
         return result;
     }
     widget_destroy_children(view);
     void *nav = widget_lookup(win, "view_navbar", 1), *title = nav ? widget_get_child(nav, 0) : 0;
-    if (title) widget_set_text_utf8(title, titles[sub]);
+    if (title) word_text(title, titles[sub]);
     if (sub == DISPLAY_THEMES) { /* the built-ins */
         accent();
         for (int i = 0; i < THEME_N; ++i) {
             int t = theme_rows[i];
-            widget_set_text_utf8(
+            word_text(
                 list_row(view, t == st.theme ? "select" : "unselect", theme_pick, (void *)(long)t),
                 themes[t].name);
         }
@@ -6374,9 +6372,8 @@ int ringnav_systemset(void *win, void *ctx) {
                                                 { "system_update", "systemset/fwupdate_page" },
                                                 { "system_reset", "systemset/reset_page" },
                                                 { "system_about", "systemset/about_page" } };
-        widget_set_text_utf8(
-            list_row_into(view, "playset_folderjump", display_open, (void *)DISPLAY_CONTROLS),
-            "Controls");
+        word_text(list_row_into(view, "playset_folderjump", display_open, (void *)DISPLAY_CONTROLS),
+                  "Controls");
         for (unsigned i = 0; i < 4; ++i)
             widget_set_tr_text(list_row_into(view, moved[i][0], to_page, (void *)moved[i][1]),
                                moved[i][0]);

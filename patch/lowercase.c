@@ -45,8 +45,9 @@ void caps_lower(void *w) {
         text_lower(w);
 }
 
-/* A menu row's text the payload writes (Display's rows, a switch's or a value's), a firmware word:
- * in lowercase under list.row.caps lower, as stock's are. */
+/* A menu word the payload writes (the Library's and the settings pages' own rows, a switch's or a
+ * value's, Display's page titles and the theme picker's names): in lowercase under list.row.caps
+ * lower, as stock's are. */
 void word_text(void *label, const char *s) {
     widget_set_text_utf8(label, s);
     if (theme()->caps_list == CAPS_LOWER) text_lower(label);
