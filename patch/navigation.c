@@ -4015,14 +4015,16 @@ void label_font(void *w, int bold) {
     for (unsigned i = 0; i < sizeof font / sizeof *font; ++i)
         widget_set_prop_str(w, font[i], bold ? "bold" : "default");
 }
-/* The theme's font for role on w: its face (bold.ttf, classic-light.ttf: tools/build.py) when that
- * face has every character of w's text (BOLD_RANGES, CLASSIC_LIGHT_RANGES), else the next bold one
- * that does (classic-light, then bold), else stock's, which has CJK, either at FACE_FALLBACK_PCT
- * of classic-light's px; and its px, if the theme sets one. Written in every state the labels
+/* The theme's font for role on w: its face (bold.ttf, classic-light.ttf, thin.ttf: tools/build.py)
+ * when that face has every character of w's text (BOLD_RANGES, CLASSIC_LIGHT_RANGES, THIN_RANGES),
+ * else the next bold one that does (classic-light, then bold), else stock's, which has CJK, either
+ * at FACE_FALLBACK_PCT of classic-light's px (the thin face falls to stock's regular one, at its
+ * px, and is no bold to keep); and its px, if the theme sets one. Written in every state the labels
  * style, only when the answer (face | px << 2) differs from was; returns it. A code-built row
  * passes FONT_ROW: the answer lives in its own "_font" prop with the role above it (row_faces reads
  * it), and a role the theme leaves to the style writes nothing. */
-static const char *const font_faces[] = { "default", "bold", "classic-light" }; /* [FONT_*] */
+static const char *const font_faces[] = { "default", "bold", "classic-light",
+                                          "thin" }; /* [FONT_*] */
 int theme_font(void *w, int role, int was) {
     static const char *const names[] = { "style:normal:font_name", "style:focused:font_name",
                                          "style:disable:font_name" },
@@ -4030,7 +4032,7 @@ int theme_font(void *w, int role, int was) {
                                                 "style:disable:font_size" };
     const theme_t *T = theme();
     int face = w ? T->font[role] : FONT_DEFAULT, px = T->font_px[role], row = was == FONT_ROW;
-    int wanted_bold = face != FONT_DEFAULT;
+    int wanted_bold = face != FONT_DEFAULT && face != FONT_THIN;
     if (row) {
         if (!face && !px) {
             font_weight_mark(w, 0);

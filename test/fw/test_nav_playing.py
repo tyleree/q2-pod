@@ -81,12 +81,12 @@ class Config:
 
 @pytest.fixture(scope='module')
 def ranges(library):
-    """The two faces' cmaps as the build cut them (tools/build.py subset_font): BOLD_RANGES, CLASSIC_LIGHT_RANGES."""
+    """The faces' cmaps as the build cut them (tools/build.py subset_font): BOLD_RANGES, CLASSIC_LIGHT_RANGES, THIN_RANGES."""
     header = (library.parent/'stock.h').read_text()
     def runs(name):
         values = [int(v, 16) for v in host.tools_build.need(re.search(rf'#define {name} \{{([^}}]*)\}}', header), name)[1].split(',')]
         return list(zip(values[::2], values[1::2]))
-    return {'bold': runs('BOLD_RANGES'), 'classic-light': runs('CLASSIC_LIGHT_RANGES')}
+    return {'bold': runs('BOLD_RANGES'), 'classic-light': runs('CLASSIC_LIGHT_RANGES'), 'thin': runs('THIN_RANGES')}
 
 
 def has(runs, text):

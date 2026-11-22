@@ -36,8 +36,9 @@ enum { NP_IPOD, NP_CENTRED, NP_N };                /* theme_t.np_layout: np_page
 enum {
     FONT_DEFAULT,
     FONT_BOLD,
-    FONT_CLASSIC_LIGHT
-}; /* theme_t.font[]: stock's, bold.ttf, classic-light.ttf */
+    FONT_CLASSIC_LIGHT,
+    FONT_THIN
+}; /* theme_t.font[]: stock's, bold.ttf, classic-light.ttf, thin.ttf (theme_font's 2 bits) */
 /* theme_t.font[] index: list title, list second line, bar title, Now Playing title, a two-line
  * row's title, Home rows, small text (the QR pages, the Time Zone caption, page notes) */
 enum { ROLE_TITLE, ROLE_META, ROLE_BAR, ROLE_NP, ROLE_TALL, ROLE_HOME, ROLE_INFO, ROLE_N };

@@ -28,14 +28,18 @@ void font_weight_paint(void *w, void *canvas) {
 }
 
 static const unsigned short bold_ranges[] = BOLD_RANGES,
-                            classic_light_ranges[] = CLASSIC_LIGHT_RANGES;
+                            classic_light_ranges[] = CLASSIC_LIGHT_RANGES,
+                            thin_ranges[] = THIN_RANGES;
 
 /* 1 iff every character of c (n < 0: up to the NUL; NULL has none) is in face's cmap. */
 static int face_has(int face, const unsigned *c, int n) {
-    const unsigned short *r = face == FONT_CLASSIC_LIGHT ? classic_light_ranges : bold_ranges;
+    const unsigned short *r = face == FONT_CLASSIC_LIGHT ? classic_light_ranges
+                              : face == FONT_THIN        ? thin_ranges
+                                                         : bold_ranges;
     unsigned k = face == FONT_CLASSIC_LIGHT
                      ? sizeof classic_light_ranges / sizeof *classic_light_ranges
-                     : sizeof bold_ranges / sizeof *bold_ranges;
+                 : face == FONT_THIN ? sizeof thin_ranges / sizeof *thin_ranges
+                                     : sizeof bold_ranges / sizeof *bold_ranges;
     if (face == FONT_DEFAULT) return 1;
     if (!c) return 0;
     for (; n < 0 ? *c : n; ++c, --n) {
@@ -55,7 +59,7 @@ static int fallback_px(int px) { return (px * FACE_FALLBACK_PCT + 50) / 100; }
 
 /* The FONT_* to draw s (n as face_has) in for a theme's face: face where it has every character,
  * else bold where it does (classic-light's fallback, at fallback_px of *px unless px is 0), else
- * stock's, which has CJK. bold.ttf falling to stock's keeps its px. */
+ * stock's, which has CJK. bold.ttf and thin.ttf falling to stock's keep their px. */
 int script_face(int face, const unsigned *s, int n, int *px) {
     if (face_has(face, s, n)) return face;
     if (face != FONT_CLASSIC_LIGHT) return FONT_DEFAULT; /* CJK */
@@ -63,13 +67,16 @@ int script_face(int face, const unsigned *s, int n, int *px) {
     return face_has(FONT_BOLD, s, n) ? FONT_BOLD : FONT_DEFAULT; /* Cyrillic: still bold */
 }
 
-/* Canvas text in the theme's face where it has the characters, else bold.ttf where it has them
- * (still bold), else the system font, either at the fallback's px (draw_centred). A theme without
- * a face of its own draws the system font, as before. */
+/* Canvas text in the theme's face (classic-light or thin) where it has the characters, else
+ * bold.ttf where it has them (Classic's, still bold), else the system font, either at the
+ * fallback's px (draw_centred). A theme without a face of its own draws the system font, as before.
+ */
 const char *theme_face(const unsigned *s, int n, int *px) {
-    if (theme()->font[ROLE_TITLE] != FONT_CLASSIC_LIGHT) return (const char *)0;
-    int face = script_face(FONT_CLASSIC_LIGHT, s, n, px);
+    int own = theme()->font[ROLE_TITLE];
+    if (own != FONT_CLASSIC_LIGHT && own != FONT_THIN) return (const char *)0;
+    int face = script_face(own, s, n, px);
     return face == FONT_CLASSIC_LIGHT ? "classic-light"
            : face == FONT_BOLD        ? "bold"
+           : face == FONT_THIN        ? "thin"
                                       : (const char *)0;
 }

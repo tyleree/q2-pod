@@ -22,7 +22,8 @@ unsigned flat_on(void) {
 }
 /* The flat look's headings and words: the theme's own face (theme_face's), or bold */
 const char *flat_face(void) {
-    return theme()->font[ROLE_TITLE] == FONT_CLASSIC_LIGHT ? "classic-light" : "bold";
+    int own = theme()->font[ROLE_TITLE];
+    return own == FONT_CLASSIC_LIGHT ? "classic-light" : own == FONT_THIN ? "thin" : "bold";
 }
 /* A round box in a final colour: stock's, one call, as a row at a time costs a page's other parts
  * their share of a paint. Light Mode's ink is held off it, as flipping a colour back is not exact.

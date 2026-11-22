@@ -1103,8 +1103,9 @@ def subset_font(src, family, ranges_macro, notice=None):
     # A subset is a Modified Version: it may not carry the Reserved Font Name (its names; the notices
     # are the licence files FONT_NOTICES ships beside it)
     for rec in font['name'].names:
-        if rec.nameID in (1, 3, 4, 6, 16, 17, 18, 21, 22):
-            rec.string = str(rec).replace(old, family).replace(old.replace(' ', ''), family.replace(' ', ''))
+        if rec.nameID in (1, 3, 4, 6, 16, 17, 18, 21, 22):  # the PostScript name (6) has no spaces, whatever old's are
+            rec.string = (str(rec).replace(old, family.replace(' ', '') if rec.nameID == 6 else family)
+                          .replace(old.replace(' ', ''), family.replace(' ', '')))
             check(old.split()[0] not in str(rec), f'{label} font name {rec.nameID} keeps {old.split()[0]}')
     if notice:
         font['name'].setName(notice, 10, 3, 1, 0x409)
@@ -1135,12 +1136,22 @@ def bold_font():
 # The LPPL asks a modified font to say so itself, and where the original is: assets/fonts/README-classic-light.txt
 CLASSIC_LIGHT_TTF = 'release/assets/default/raw/fonts/classic-light.ttf'
 # OFL 2 asks each copy to hold its licence, and the subsets' name tables don't: these ship beside the fonts
-FONT_NOTICES = ('LiberationSans-OFL.txt', 'GUST-FONT-LICENSE.txt', 'README-classic-light.txt')
+FONT_NOTICES = ('LiberationSans-OFL.txt', 'GUST-FONT-LICENSE.txt', 'README-classic-light.txt', 'Selawik-OFL.txt')
 CLASSIC_LIGHT_NOTICE = ("Modified version of TeX Gyre Heros Bold 2.004: cut to part of its Latin, including Vietnamese's letters with tone marks, part of its Greek, and its punctuation, its layout features to frac, liga and locl, a play mark added at U+25B6, and renamed. "
                'The original: https://www.gust.org.pl/projects/e-foundry/tex-gyre/heros')
 
 def classic_light_font():
     return subset_font(ROOT/'assets/fonts/texgyreheros-bold.otf', 'Q2 Pod Classic Light', 'CLASSIC_LIGHT_RANGES', CLASSIC_LIGHT_NOTICE)
+
+# The thin face (theme.xml font "thin"; Q2 Z's): Selawik Light 1.01 (OFL, assets/fonts, with Selawik-OFL.txt), the same
+# cut. Selawik is its Reserved Font Name, so the subset is renamed; it has Latin alone, so anything else falls to stock's
+# regular face (script.c script_face).
+THIN_TTF = 'release/assets/default/raw/fonts/thin.ttf'
+THIN_NOTICE = ('Modified version of Selawik Light 1.01: cut to its Latin and punctuation, a play mark added at U+25B6, and renamed. '
+               'The original: https://github.com/microsoft/Selawik')
+
+def thin_font():
+    return subset_font(ROOT/'assets/fonts/selawkl.ttf', 'Q2 Pod Thin', 'THIN_RANGES', THIN_NOTICE)
 
 def relabel(data):
     """A strings/*.bin value replaced: after a u16 0 and a u16 pair count, a u32 offset to each key and
@@ -1967,6 +1978,7 @@ def build(zip_path, out, logo, dev=False, repo=REPO, stock_flac=False):  # pragm
     syms.update(PRIVATE_FUNCTIONS)
     bold, bold_ranges = bold_font()
     classic_light, classic_light_ranges = classic_light_font()
+    thin, thin_ranges = thin_font()
     for name in GLOBALS:
         check(re.search(rf'\b1\s+OBJECT\s+GLOBAL\s+DEFAULT\s+\d+\s+{name}$',
                         symbol_table, re.M), f'{name}: byte global size mismatch')
@@ -1976,7 +1988,7 @@ def build(zip_path, out, logo, dev=False, repo=REPO, stock_flac=False):  # pragm
     from theme import builtins, emit, geometry_sets
     themes = builtins()
     (out/'stock.h').write_text(stock_header({name: f'0x{syms[name]:x}u' for name in CONTEXT_DATA},
-                                            [bold_ranges, classic_light_ranges], themes, dev, repo))
+                                            [bold_ranges, classic_light_ranges, thin_ranges], themes, dev, repo))
     set_pages, redirects = {}, {}
     ui = 'release/assets/default/raw/ui/'
     for i, g in enumerate(geometry_sets(themes)[1:], 1):
@@ -2320,6 +2332,7 @@ def build(zip_path, out, logo, dev=False, repo=REPO, stock_flac=False):  # pragm
                                **({LOGO_LIGHT: (xx+'list_tidal.png', light)} if light else {}),  # the swapped logo.jpg has no stock inode left
                                BOLD_TTF: (FONT, bold),
                                CLASSIC_LIGHT_TTF: (FONT, classic_light),
+                               THIN_TTF: (FONT, thin),
                                **{'release/assets/default/raw/fonts/' + n: ('etc/hosts', (ROOT/'assets/fonts'/n).read_bytes()) for n in FONT_NOTICES},
                                **({REMOTE: (HELPER_LIKE, compile_helper(out, cat, 'remote', 'q2remote', HELPER_LIBS[:1]))} if dev else {})}.items():
         stock = need(inode(p, like.encode()), f'Missing stock inode for {path}')

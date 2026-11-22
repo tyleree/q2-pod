@@ -444,6 +444,28 @@ def test_classic_light_font():
     assert 'CFF ' in font and 'glyf' not in font  # the chosen outline form
 
 
+def test_thin_font():
+    """Selawik Light, cut to what it has of FACE_RANGES, renamed (OFL: Selawik is its Reserved Font Name), its
+    copyright, trademark and a notice of the change kept; its licence ships beside it."""
+    from fontTools.ttLib import TTFont
+    font_bytes, ranges = build.thin_font()
+    font, source = TTFont(io.BytesIO(font_bytes)), TTFont(build.ROOT/'assets/fonts/selawkl.ttf')
+    have = sorted(u for u in source.getBestCmap() if any(a <= u <= b for a, b in build.FACE_RANGES)) + [build.PLAY_MARK]
+    assert sorted(font.getBestCmap()) == have and 0x61 in have and 0xe9 in have and 0x430 not in have
+    names = {rec.nameID: str(rec) for rec in font['name'].names}
+    assert names[1].startswith('Q2 Pod Thin') and names[6].startswith('Q2PodThin')
+    assert all(len(names[i]) <= 31 for i in (1, 4, 6))  # AWTK font names
+    for i in (1, 3, 4, 6, 16, 17, 18, 21, 22):
+        assert 'Selawik' not in names.get(i, '')
+    assert names[0] == str(source['name'].getName(0, 3, 1, 0x409))
+    assert names[7] == str(source['name'].getName(7, 3, 1, 0x409))
+    assert 'Modified version of Selawik Light' in names[10] and 'github.com/microsoft/Selawik' in names[10]
+    assert 'SIL Open Font License' in (build.ROOT/'assets/fonts/Selawik-OFL.txt').read_text()
+    assert 'Selawik-OFL.txt' in build.FONT_NOTICES
+    assert re.fullmatch(r'#define THIN_RANGES \{0x20,0x7e,[0-9a-fx,]+\}', ranges)
+    assert ranges.endswith(',0x25b6,0x25b6}')
+
+
 @pytest.mark.parametrize('face', ['bold_font', 'classic_light_font'])
 def test_both_faces_are_given_a_play_mark_on_the_middle_of_their_capitals(face):
     """View Queue's mark (navigation.c stock_row_style): neither source has U+25B6, and a title holding
