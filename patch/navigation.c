@@ -2415,7 +2415,8 @@ static void toast_paint(void *w, void *canvas) {
  **************************************************************************************************/
 
 /* Load and settle the painted surface's selection, then draw it behind the rows: Minimal's card
- * (a dot on Home), Modern's full-width accent bar (SEL_BAR) or Classic's stops band (SEL_STOPS). */
+ * (a dot on Home), Modern's full-width accent bar (SEL_BAR) or Classic's stops band (SEL_STOPS);
+ * SEL_TEXT draws none, its row's ink is the selection (ringnav_style_color). */
 static void paint_selection(void *w, void *canvas) {
     if (kind(w)) st.sel_w = st.sel_widget = st.sel_accent = (void *)0;
     if (!w || !canvas || !kind(w)) return;
@@ -2503,11 +2504,11 @@ static void paint_selection(void *w, void *canvas) {
     st.sel_home = home && !band;
     /* Light Mode: ink on a coloured bar or card stays white (ringnav_style_color); so does the
      * stops band's, or its sel_text. */
-    st.sel_accent =
-        (painter == SEL_STOPS || (!neutral(S->tones[0]) && !(S->flags & SCHEME_CARD))) &&
-                !st.sel_home
-            ? (home ? P(g_menu.at[i], W_PARENT) : g_menu.at[i])
-            : (void *)0;
+    st.sel_accent = (painter == SEL_STOPS || painter == SEL_TEXT ||
+                     (!neutral(S->tones[0]) && !(S->flags & SCHEME_CARD))) &&
+                            !st.sel_home
+                        ? (home ? P(g_menu.at[i], W_PARENT) : g_menu.at[i])
+                        : (void *)0;
     if (band && (!tile || g_menu.kind == 4)) {
         if (speed) st.sel_accent = speed;
         if (painter == SEL_STOPS) { /* Classic's band: square and full width, the glass clips it */
@@ -2532,7 +2533,7 @@ static void paint_selection(void *w, void *canvas) {
                 stock_canvas_set_fill_color(canvas, RGBA(S->sel_edge));
                 canvas_fill_rect(canvas, r.x, r.y + r.h - 1, r.w, 1);
             }
-        } else {
+        } else if (painter == SEL_BAR) {
             /* Modern's bar, a list row's a pill under Rounded Corners, inset like Minimal's card */
             rect_t bar = r;
             int pill = !tile && corners ? pill_radius(g_menu.at[i], r.h, SEL_INSET) : 0;
@@ -5456,7 +5457,9 @@ unsigned *ringnav_style_color(unsigned *color, void *style, const char *name, un
             *color = ui_ink(*color);
             return color;
         }
-        if (st.sel_home && st.sel_w) {
+        /* Home's other rows under Minimal's dot, a list's under the text painter's: grey */
+        if ((st.sel_home || (T->painter[PAINT_SELECTION] == SEL_TEXT && st.sel_accent)) &&
+            st.sel_w) {
             for (void *w = st.paint_w; w; w = P(w, W_PARENT))
                 if (w == st.sel_w) {
                     *color = ui_ink((*color & 0xff000000u) | 0xaaaaaa);

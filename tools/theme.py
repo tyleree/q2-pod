@@ -29,7 +29,7 @@ PAYLOAD_KEYS = frozenset(
     + [k for f in sorted((ROOT/'patch').glob('*.c')) for k in re.findall(r'"IPOD", "([A-Z0-9_]+)"', f.read_text())])
 # value name -> its C name (theme.h); the font keys take FONTS
 FONTS = {'regular': 'FONT_DEFAULT', 'bold': 'FONT_BOLD', 'classic-light': 'FONT_CLASSIC_LIGHT', 'thin': 'FONT_THIN'}
-CHOICES = {'list.selection.painter': {'card': 'SEL_CARD', 'stops': 'SEL_STOPS', 'bar': 'SEL_BAR'},
+CHOICES = {'list.selection.painter': {'card': 'SEL_CARD', 'stops': 'SEL_STOPS', 'bar': 'SEL_BAR', 'text': 'SEL_TEXT'},
            'bar.fill.painter': {'flat': 'BAR_FLAT', 'gloss': 'BAR_GLOSS'},
            'bar.battery.painter': {'stock': 'BATT_STOCK', 'classic-light': 'BATT_CLASSIC_LIGHT'},
            'playing.scrubber.painter': {'stock': 'SCRUB_STOCK', 'rows': 'SCRUB_ROWS'},
@@ -953,6 +953,11 @@ def validate(t, name):
     if t['painter[PAINT_SELECTION]'] == stops and not all(s['sel'] or s['light'].get('sel') for i, s in enumerate(t['schemes'])
                                                           if t['accents'] >> i & 1):
         err('selection: painter stops needs every offered scheme\'s sel.stops')
+    # the text painter draws no band: the selected row is its sel.text alone (ringnav_style_color)
+    text = list(CHOICES['list.selection.painter']).index('text')
+    if t['painter[PAINT_SELECTION]'] == text and not all(s['sel_text'] or s['light'].get('sel_text') for i, s in enumerate(t['schemes'])
+                                                         if t['accents'] >> i & 1):
+        err('selection: painter text needs every offered scheme\'s sel.text')
     if t['painter[PAINT_BATTERY]'] == list(CHOICES['bar.battery.painter']).index('classic-light') and not t['batt']:
         err('battery: this painter needs stops')
     for n in sorted({t['geom_set'], *(s for o in t['opts'] for s in o.get('sets') or ())}):

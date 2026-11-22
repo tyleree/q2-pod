@@ -319,6 +319,8 @@ C = '<colorSchemes accents="cobalt"/><option setting="accent" key="ACCENT" defau
     (C + '<view name="pages"><element name="own" painter="classic-light"/><element name="date" gap="6"/></view>', None,
      "pages.quick.light_ground and pages.date.gap are the flat look's"),
     ('<view name="list"><element name="row" caps="1"/></view>', None, 'list.row.caps: 1 has no painter; 0 or lower'),
+    ('<view name="list"><element name="selection" painter="text"/></view>', None, "selection: painter text needs every offered scheme's sel.text"),
+    (C + '<view name="list"><element name="selection" painter="text"/></view>', None, "selection: painter text needs every offered scheme's sel.text"),
 ])
 def test_validate_rejects(body, attrs, message):
     t = resolved(body, *([attrs] if attrs else []))
@@ -335,6 +337,7 @@ def test_validate_accepts():
     # one half's stops serve both: half() flips them for the other
     '<colorScheme name="cobalt" light.sel.stops="#08a6e7 0, #0065d6 100"/><view name="list"><element name="selection" painter="stops"/></view>',
     '<view name="bar"><element name="battery" painter="classic-light" stops="#90b27d 0, #539933 100"/></view>',
+    '<colorScheme name="cobalt" sel.text="#5b8ff0"/><view name="list"><element name="selection" painter="text"/></view>',
 ])
 def test_validate_accepts_a_painter_with_its_stops(body):
     assert theme.validate(resolved(C + body), 't.xml') is None
@@ -343,7 +346,7 @@ def test_validate_accepts_a_painter_with_its_stops(body):
 def test_key():
     assert theme.key('a.b.c', 'f', 'bool') == theme.Key('a.b.c', 'f', 'bool', 0, 1, 0, 'live')
     assert theme.key('a.b.c', 'f', 'color').hi == 0xffffff
-    assert theme.key('list.selection.painter', 'f', 'enum').hi == 2
+    assert theme.key('list.selection.painter', 'f', 'enum').hi == 3  # card, stops, bar, text
     assert theme.key('a.b.c', 'f', 'int', 255).hi == 255
 
 

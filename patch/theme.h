@@ -23,8 +23,9 @@ enum { PAGES_STOCK, PAGES_CLASSIC_LIGHT, PAGES_FLAT, PAGES_CLASSIC_FLAT };
  * app's progress */
 enum { SCRUB_STOCK, SCRUB_ROWS };
 enum { NP_ROWS = 31 }; /* theme_t.np_rows[][]: the rows painter's most rows */
-/* painter[PAINT_SELECTION]: Minimal's card, Classic's stops, Modern's bar */
-enum { SEL_CARD, SEL_STOPS, SEL_BAR };
+/* painter[PAINT_SELECTION]: Minimal's card, Classic's stops, Modern's bar, or the text alone: no
+ * fill, the selected row in its scheme's sel_text and the list's other rows grey */
+enum { SEL_CARD, SEL_STOPS, SEL_BAR, SEL_TEXT };
 enum { BAR_FLAT, BAR_GLOSS }; /* painter[PAINT_BAR]: the status bar's fill (Classic gloss) */
 /* theme_t.caps_mark, caps_home, caps_list: Minimal's small capitals (paint_caps), or the firmware's
  * words in lowercase (lowercase.c) */
