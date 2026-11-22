@@ -52,7 +52,7 @@ def test_the_family_is_the_looks_not_the_themes():
 def test_classic_modern_draws_only_its_flat_row_icons():
     """Classic Modern's images are Classic's and the flat look's, the same bytes, and its pane's row icons flat (its pane
     follows the rows, coverflow.c pane_art), white and the ink, each the drawing Classic's gradient icon fills."""
-    _, classic, modern, cm = theme.builtins()
+    _, classic, modern, cm, _ = theme.builtins()
     got, known = art.images(cm), {**art.images(classic), **art.images(modern)}
     own = {f'flat_pane_icon_{n}{k}' for n in art.PANE_ICONS if n != 'note' for k in ('', '_l')}
     assert set(got) - set(known) == own and all(known[k] == v for k, v in got.items() if k not in own)

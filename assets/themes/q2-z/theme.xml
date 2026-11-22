@@ -1,0 +1,66 @@
+<!-- Theme: Q2 Z (IPOD/THEME 4, docs/ipod.md#display-settings): big thin lowercase type on black. Modern's flat screens
+     and Now Playing, on a set of its own: a 40 px bar whose title is the page's header, in the thin face (Selawik Light,
+     fonts/thin.ttf) at the bar's whole height, run on to the icons; 40 px rows of 26 px text (Home's 27, which Split's
+     column holds), the selected one in the accent's ink with no fill under it, the others grey; the firmware's own words
+     in lowercase. Black in both halves: it has no Light Mode. -->
+<theme format="1" id="q2-z" name="Q2 Z" index="4" extends="modern">
+  <!-- The set: Classic's shape at 40 px. The bar holds the title, as on Classic's sets (no toolbars); its title is laid out
+       in the thin face (pivot), bar_title_w wide beside the clock and up to the icons while the clock makes way. Seven rows
+       of 40 under it, a song's two lines at 56; the rows' text from x 20. -->
+  <geometry name="q2-z" bar="40" pitch="40" body="40" art="0" art_inset="0" art_pitch="40" art_body="40" text_art="0"
+            text_art_inset="0" lib_pitch="40" lib_body="40" lib_inset="0" lib_art="0" title24_y="8" title_y="10" meta_y="12"
+            count_y="12" art_title24_y="8" art_meta_y="12" song_pitch="56" song_body="56" song_title24_y="3"
+            song_meta_y="33" set_row="40" set_top="0" set_rows="7" set_icon="0" stream_row="40" bar_px="40" pivot="1"
+            bar_title_w="115" bar_right="16" text_x="20" list_end="240" action_row="40"
+            home_row="38" home_lib="0" np_ipod="0" stock_row="40" stock_body="40" stock_title_y="4" stock_title_h="32"
+            toolbar="0" search_row="56" search_body="56" search_art="0" search_title_y="3" search_title24_y="3"
+            search_title_h="28" search_meta_y="33" search_meta_h="20"/>
+  <geometry set="q2-z"/>
+  <!-- Magenta, its own accent: Plum's place, its own tones, what the progress, the flat look's lit controls and stock's
+       reds take. Every scheme is the dark half alone, and the selected row's ink is its sel.text -->
+  <colorScheme name="magenta" label="Magenta" base="plum" tones="#ff0097 #ff0097 #ff33ac #ff33ac #ff33ac" sel.text="#ff1aa6"/>
+  <colorSchemes accents="magenta graphite crimson tidal cobalt tangerine green"/>
+  <colorScheme mode="dark"/>
+  <colorScheme name="graphite" sel.text="#ffffff"/>
+  <colorScheme name="crimson" sel.text="#ff3355"/>
+  <colorScheme name="tidal" sel.text="#2bbdc8"/>
+  <colorScheme name="cobalt" sel.text="#4f8ef5"/>
+  <colorScheme name="tangerine" sel.text="#f7821f"/>
+  <colorScheme name="green" sel.text="#8cc63f"/>
+  <option key="STATUSBAR" label="Status Bar" default="Theme" preset="Theme"><value label="Theme"/><value label="Minimal"/><value label="Modern"/><value label="Classic"/></option>
+  <option setting="time_title" preset="off"/>
+  <option key="SHOWQ2POD" label="Show Wordmark" default="On"><value label="Off"/><value label="On"/></option>
+  <option setting="accent" key="Q2Z_ACCENT" default="magenta" preset="magenta"/>
+  <option setting="home" preset="split"/>
+  <option setting="shortcut"/>
+  <!-- the modes a bar of its own has room for, as Classic's -->
+  <option setting="battery" values="icon percent inside" default="inside"/>
+  <option setting="np_layout"/>
+  <!-- The bar: black, its title the header in the thin face at the bar's height, in lowercase -->
+  <view name="bar"><element name="title" font="thin" font_size="40" caps="lower"/></view>
+  <!-- A list's rows: no fill under the selected one; thin titles at 26 px, as large as stock's 24 px label boxes hold
+       (Selawik's descenders reach 0.2 em below its baseline), second lines stock's 17 px; flat white icons; its words in
+       lowercase -->
+  <view name="list">
+    <element name="selection" painter="text"/>
+    <element name="row" font="thin" title_px="26" meta_px="17" tall_font="thin" tall_px="26" text_end="350" caps="lower"/>
+    <!-- a one-line row's text ends before stock's chevron (its art columns, though it draws no art) -->
+    <element name="art" text_end="310"/>
+    <element name="icons" mono="1" badge_muted="1" addon_mono="1"/>
+  </view>
+  <view name="home">
+    <element name="chevron" visible="0"/>
+    <element name="rows" font="thin" font_px="27" caps="lower"/>
+  </view>
+  <view name="playing">
+    <element name="title" font="thin"/>
+  </view>
+  <!-- page_list's rows (the Library's Shuffle, Most Played, Era, card apps...): the set's 40 px, or a song's two lines at
+       56 with a detail; the bar holds the title, so no title row -->
+  <view name="page">
+    <element name="rows" height="40" detail_height="56" text_x="20" title_y="1" title_h="30" detail_y="33" detail_h="20"/>
+    <element name="title" height="0"/>
+  </view>
+  <!-- a settings row is its title with the value right-aligned -->
+  <view name="settings"><element name="values" text="1"/></view>
+</theme>

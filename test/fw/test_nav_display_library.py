@@ -609,12 +609,13 @@ def picks(view):
     return [(item.labels()[0].text, item.children[0].children[0].props['image'].decode()) for item in view.children]
 
 
-def test_the_theme_picker_lists_minimal_modern_classic_classic_modern_marking_the_running_one(fw):
+def test_the_theme_picker_lists_minimal_modern_classic_classic_modern_q2_z_marking_the_running_one(fw):
     ui = Ui(fw)
     page = appearance(fw, ui, THEME=b'2')
     themes_page(fw, ui, page)
     assert page.title() == 'Theme'
-    assert picks(page.view()) == [('Minimal', 'unselect'), ('Modern', 'select'), ('Classic', 'unselect'), ('Classic Modern', 'unselect')]
+    assert picks(page.view()) == [('Minimal', 'unselect'), ('Modern', 'select'), ('Classic', 'unselect'), ('Classic Modern', 'unselect'),
+                                  ('Q2 Z', 'unselect')]
 
 
 def pick(ui, page, t):

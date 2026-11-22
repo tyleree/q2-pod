@@ -12,7 +12,7 @@ import pathlib
 import re
 import struct
 import types
-from build import CLASSIC_LIGHT_TTF, ROOT, check, fileoff, need, sha, jal
+from build import CLASSIC_LIGHT_TTF, THIN_TTF, ROOT, check, fileoff, need, sha, jal
 
 AUDIT = json.loads((pathlib.Path(__file__).resolve().parents[1]/'patch/ipod.json').read_text())
 UI_ASSETS = AUDIT['assets'] | AUDIT['navbar_only'] | AUDIT['slide_only']
@@ -67,6 +67,7 @@ class Geometry:
     set_icon: int = inc('SET_ICON')
     stream_row: int = inc('SET_ROW')
     bar_px: int = 0  # the status bar's title and clock px in the Classic face (status_metrics); 0: stock's bar, no title
+    pivot: int = 0  # with bar_px: the title a header in the thin face, cut at its box's end, no ellipsis; the clock stock's 16 px
     bar_title_w: int = 0  # the bar title's text width (status_metrics)
     bar_right: int = 0  # Classic's bar: the right group's margin, from the nub's last column to the screen's edge
     batt_w: int = inc('BATT_BODY_W')  # the battery body under BATT_CLASSIC_LIGHT (navigation.c classic_light_battery), its nub outside
@@ -458,6 +459,13 @@ CLOCK_GAP = 4
 CLASSIC_LIGHT_CLOCK_GAP = 2  # Classic's right group's room, from the widest clock
 CLASSIC_LIGHT_FONT_SRC = ROOT/'assets/fonts/texgyreheros-bold.otf'  # the Classic face's source, subset to CLASSIC_LIGHT_TTF
 CLASSIC_LIGHT_FONT_NAME = pathlib.Path(CLASSIC_LIGHT_TTF).stem
+THIN_FONT_SRC = ROOT/'assets/fonts/selawkl.ttf'  # the thin face's source, subset to THIN_TTF
+THIN_FONT_NAME = pathlib.Path(THIN_TTF).stem
+
+
+def bar_face(g):
+    """The source of the face a bar_px set's title is laid out in: the thin one on a pivot bar, else Classic's."""
+    return THIN_FONT_SRC if g.pivot else CLASSIC_LIGHT_FONT_SRC
 
 
 def status_metrics(g, font):
@@ -478,7 +486,8 @@ def status_metrics(g, font):
     pad = 2  # the hscroll_label's margin each side
     return {'px': g.bar_px, 'cap': cap, 'cap_top': cap_top, 'label_y': label_y, 'inset': inset, 'clock_text': clock_text,
             'title': [inset - pad, label_y, g.bar_title_w + 2 * pad, h],
-            'clock': [(375 - CLOCK_MIN) // 2, label_y, CLOCK_MIN, h]}
+            # a pivot bar's clock is stock's, at 16 px across the bar (status_bar)
+            'clock': [(375 - CLOCK_MIN) // 2, 0, CLOCK_MIN, g.bar] if g.pivot else [(375 - CLOCK_MIN) // 2, label_y, CLOCK_MIN, h]}
 
 
 def time_widths(font, px=NP_IPOD_TIME_PX):
@@ -515,8 +524,9 @@ def status_bar(root, g=SET0):
         pct[2].update({f'style:{s}:font_size': str(BATT_PCT_PX), f'style:{s}:text_align_h': 'right'})
     pct[2]['visible'] = 'false'
     widgets['view_battery'] = ['view', [0, 0, BATT_H_W, 0], {'name': 'view_battery', 'visible': 'false'}, []]
-    # Classic's set (bar_px): the title on the left in the Classic face, the clock centred, the icons right of it
-    m = g.bar_px and status_metrics(g, CLASSIC_LIGHT_FONT_SRC)
+    # Classic's set (bar_px): the title on the left in the Classic face, the clock centred, the icons right of it; a pivot
+    # bar's title in the thin face, which runs on to the icons with no ellipsis while the clock makes way (np_bar.c bar_title)
+    m = g.bar_px and status_metrics(g, bar_face(g))
     left[3] = [] if m else [widgets[n] for n in STATUS_LEFT]
     right[3] = [widgets[n] for n in (STATUS_RIGHT_CLASSIC_LIGHT if m else STATUS_RIGHT)]
     xm = g.bar_right if m else STATUS_MARGIN
@@ -524,7 +534,8 @@ def status_bar(root, g=SET0):
         layout = view[2]['children_layout']
         check('xm=50,s=5)' in layout, 'Unexpected status bar layout')
         view[2]['children_layout'] = layout.replace('xm=50,s=5', f'xm={x},s={inc("STATUS_GAP")}')
-    room = int(375 - xm - (375 / 2 + (m['clock_text'] if m else CLOCK_TEXT) / 2 + (CLASSIC_LIGHT_CLOCK_GAP if m else CLOCK_GAP)))
+    own = m and not g.pivot  # the clock in the title's face
+    room = int(375 - xm - (375 / 2 + (m['clock_text'] if own else CLOCK_TEXT) / 2 + (CLASSIC_LIGHT_CLOCK_GAP if own else CLOCK_GAP)))
     if m:  # every icon, and the battery with the column of soft edge left of it
         reach = BT_REACH + 2 * inc('STATUS_GAP') + widgets['img_wifi'][1][2] + 1 + g.batt_w + inc('BATT_NUB_W')
         check(reach <= room, f'Status bar battery needs {reach}px of {room}px')
@@ -535,10 +546,10 @@ def status_bar(root, g=SET0):
             box[0], box[3] = -200, g.bar  # still updated by stock, drawn off-screen
             root[3].append(widgets[name])
         face = {f'style:{s}:{k}': v for s in ('normal', 'disable', 'focused')
-                for k, v in (('font_size', str(g.bar_px)), ('font_name', CLASSIC_LIGHT_FONT_NAME))}
+                for k, v in (('font_size', str(g.bar_px)), ('font_name', THIN_FONT_NAME if g.pivot else CLASSIC_LIGHT_FONT_NAME))}
         # Classic shows no EQ: stock still updates it, drawn above the bar, floating at the room's left edge, where
-        # bar_title reads how far the title may reach (np_bar.c).
-        eq[1][:2] = [375 - xm - room - right[1][0], -200]
+        # bar_title reads how far the title may reach (np_bar.c); a pivot bar's title reaches the icons' room
+        eq[1][:2] = [375 - xm - (reach if g.pivot else room) - right[1][0], -200]
         eq[2]['floating'] = 'true'
         right[3].append(eq)
         # The play state is in the row, between Wi-Fi and the battery, and the row closes up without it.
@@ -549,8 +560,11 @@ def status_bar(root, g=SET0):
         left[1][3] = widgets['img_state'][1][3] = right[1][3]  # the state's 22 px art, its ink centred on the caps
         # The payload writes the top window's title (bar_title_sync) and the local time (ringnav_paint_bg).
         for name, style in (('title', 's_scrlabel_white20l'), ('clock', 's_scrlabel_white20c')):
-            root[3].append(['hscroll_label', m[name], {'name': 'label_' + name, 'style': style, 'only_focus': 'true',
-                                                       'ellipses': 'true', **face}, []])
+            if g.pivot:  # the title cut where its box ends, as a header running on; the clock stock's
+                own = {'ellipses': 'false', **face} if name == 'title' else {'ellipses': 'true', 'style:normal:font_size': '16'}
+            else:
+                own = {'ellipses': 'true', **face}
+            root[3].append(['hscroll_label', m[name], {'name': 'label_' + name, 'style': style, 'only_focus': 'true', **own}, []])
         return
     shown = [[n for n in v[3] if n[2]['name'] not in BATT_MODES] for v in (left, right)]
     extent = max(STATUS_MARGIN + sum(n[1][2] for n in v) + inc('STATUS_GAP') * (len(v) - 1) for v in shown)

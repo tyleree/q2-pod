@@ -338,6 +338,7 @@ GEOM_RANGES = {
     'set_icon': (0, lambda g: g.set_row),
     'stream_row': (28, 78),
     'bar_px': (0, lambda g: g.bar),  # the bar title's size inside the bar; 0: no title
+    'pivot': (0, lambda g: 1 if g.bar_px else 0),  # the title a header in the thin face (tools/ipod.py status_bar), a bar with one
     'bar_title_w': (0, 188),  # its text's width: at most the bar's left half, a full-length title reaching the clock's box
     'bar_right': (0, 80),
     'batt_w': (1, 40),
@@ -790,6 +791,11 @@ def resolve(root, by_id, seen=()):
                     t['schemes'].append(dict(b, name=n, label=label, base=ACCENT_NAMES.index(c.attrs['base']),
                                              light=dict(b['light'])))
                     t['accents'] |= 1 << len(t['schemes']) - 1
+                if 'tones' in c.attrs:  # its own ACCENTS row in place of its base's: what the accent fills and inks
+                    tones = c.attrs['tones'].split()
+                    if len(tones) != 5 or not all(re.fullmatch('#[0-9a-fA-F]{6}', x) for x in tones):
+                        err(c, f'{n}: tones: expected five #rrggbb (top, bottom, light, red, highlight)')
+                    t['schemes'][scheme_names(t).index(n)]['tones'] = tuple(int(x[1:], 16) for x in tones)
             names = scheme_names(t)
             if n is not None and n not in names:
                 err(c, f'unknown scheme {n}')
@@ -797,7 +803,7 @@ def resolve(root, by_id, seen=()):
                 named.append((c, n))
             targets = t['schemes'] if n is None else [t['schemes'][names.index(n)]]
             for attr, text in c.attrs.items():
-                if attr == 'name' or own and attr in ('base', 'label'):
+                if attr == 'name' or own and attr in ('base', 'label', 'tones'):
                     continue
                 h, k = split_half(attr)
                 path = f'scheme.{k}'
@@ -1169,7 +1175,9 @@ def emit(themes, out, redirects={}):
         return list(CHOICES[k.path].values())[v] if k.type == 'enum' else v
     lines = ['/* tools/theme.py wrote this from assets/themes/<id>/theme.xml; edit those. */']
     def rows(t, light):
-        return [f'    {{ .tones = accents[{s.get("base", v)}], .flags = {s["card"] | s["raw_red"] << 1}, .fill = 0x{s["fill"]:06x}, '
+        def tones(s, v):  # an own scheme's own row, else its ACCENTS row's
+            return '(const unsigned[]){%s}' % ', '.join(f'0x{x:06x}' for x in s['tones']) if 'tones' in s else f'accents[{s.get("base", v)}]'
+        return [f'    {{ .tones = {tones(s, v)}, .flags = {s["card"] | s["raw_red"] << 1}, .fill = 0x{s["fill"]:06x}, '
                 f'.chevron = 0x{s["chevron"]:06x}, .muted = 0x{s["muted"]:06x}, .bar_light = 0x{s["bar_light"]:06x}, '
                 f'.sel = {stops_c(s["sel"])}, .sel_top = 0x{s["sel_top"]:06x}, .sel_edge = 0x{s["sel_edge"]:06x}, '
                 f'.sel_tall_edge = 0x{s["sel_tall_edge"]:06x}, .sel_tall_line = 0x{s["sel_tall_line"]:06x}, .sel_tall_top = 0x{s["sel_tall_top"]:06x}, '
@@ -1184,11 +1192,14 @@ def emit(themes, out, redirects={}):
             drawn[tuple(body)] = name
             lines.extend([f'static const scheme_t {name}[] = {{', *body, '};', *asserts])
         return drawn[tuple(body)]
+    dark_mode = list(CHOICES['scheme.mode']).index('dark')
     for t in themes:
         i, one = c_name(t), shared(t)
+        # every offered scheme its dark half alone (Q2 Z's): no light half is ever read, so the dark rows serve both
+        night = all(s['mode'] == dark_mode for k, s in enumerate(t['schemes']) if t['accents'] >> k & 1)
         # one: the light rows serve both halves (today's lines); else the dark rows, then the light ones
-        dark = array(f'{i}_schemes', rows(t, one), f'_Static_assert(sizeof {i}_schemes / sizeof *{i}_schemes >= ACCENT_N, "one scheme per ACCENTS row, then the theme\'s own");')
-        named[i] = dark, dark if one else array(f'{i}_light', rows(t, True), f'_Static_assert(sizeof {i}_light == sizeof {dark}, "one light half per scheme");')
+        dark = array(f'{i}_schemes', rows(t, one and not night), f'_Static_assert(sizeof {i}_schemes / sizeof *{i}_schemes >= ACCENT_N, "one scheme per ACCENTS row, then the theme\'s own");')
+        named[i] = dark, dark if one or night else array(f'{i}_light', rows(t, True), f'_Static_assert(sizeof {i}_light == sizeof {dark}, "one light half per scheme");')
         lines.append(f'static const option_t {i}_opts[] = {{')
         lines += [f'    {{ .setting = {setting(o)}, .def = {o["def"]}, .preset = {o["preset"]}, .keep = {o["keep"]}, '
                   f'.values = 0x{o["values"]:x} }},' for o in t['opts']]

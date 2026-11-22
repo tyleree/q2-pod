@@ -14,6 +14,7 @@ from ipod import Geometry, O, SET0
 from theme import ThemeError
 
 CLASSIC_LIGHT, CLASSIC_LIGHT_TEXT = (theme.sets(theme.builtins()[1])[s] for s in ('classic-light', 'classic-light-text'))  # Classic's sets: its theme.xml
+Q2_Z = theme.geometry(theme.builtins()[4])  # Q2 Z's: its theme.xml
 
 
 def error(f, *args):
@@ -191,7 +192,7 @@ def set0_builtins():
 
 def set0_themes(tmp_path):
     """Minimal and Modern in tmp_path, Modern at index 1 (no Classic between them)."""
-    shutil.copytree(THEMES, tmp_path, dirs_exist_ok=True, ignore=shutil.ignore_patterns('classic-*'))
+    shutil.copytree(THEMES, tmp_path, dirs_exist_ok=True, ignore=shutil.ignore_patterns('classic-*', 'q2-z'))
     p = tmp_path/'modern'/'theme.xml'
     p.write_text(p.read_text().replace('index="2"', 'index="1"'))
 
@@ -544,7 +545,7 @@ def test_emit_both(tmp_path):
 
 
 def test_playing_layout_builtins_ipod():
-    assert [t['np_layout'] for t in theme.builtins()] == [0, 0, 0, 0]
+    assert [t['np_layout'] for t in theme.builtins()] == [0, 0, 0, 0, 0]
 
 
 def test_playing_layout_resolves_centred():
@@ -558,7 +559,7 @@ def test_playing_layout_rejects_unknown():
 
 def test_emit_np_layout(tmp_path):
     theme.emit(theme.builtins(), tmp_path)
-    assert (tmp_path/'themes.inc').read_text().count('.np_layout = NP_IPOD,') == 4
+    assert (tmp_path/'themes.inc').read_text().count('.np_layout = NP_IPOD,') == 5
 
 
 def test_view_attr():
@@ -570,8 +571,8 @@ def test_view_attr():
 # Enum fields and value counts come out as C names, so a reordered or added value is a compile error.
 def test_emit_names_enums_and_counts(tmp_path):
     inc = boot_inc(tmp_path, theme.builtins())
-    assert [inc.count(f'.painter[PAINT_SELECTION] = {p},') for p in ('SEL_CARD', 'SEL_STOPS', 'SEL_BAR')] == [1, 2, 1]
-    assert inc.count('.np_layout = NP_IPOD,') == 4 and '.np_layout = 0,' not in inc
+    assert [inc.count(f'.painter[PAINT_SELECTION] = {p},') for p in ('SEL_CARD', 'SEL_STOPS', 'SEL_BAR', 'SEL_TEXT')] == [1, 2, 1, 1]
+    assert inc.count('.np_layout = NP_IPOD,') == 5 and '.np_layout = 0,' not in inc
     for name, (_, values) in theme.SETTINGS.items():
         assert f'#define SETTING_N_{name.upper()} {len(values)}\n' in inc
 
@@ -615,7 +616,7 @@ def test_coverflow_eye_turn_stays_in_range():
 def test_coverflow_thumb_is_every_themes():  # the page's numbers, all retunable: Classic's, in all three
     assert set(CLASSIC_THUMB) == set(theme.CF_THUMB)
     ts = theme.builtins()
-    assert sorted(t['id'] for t in ts) == ['classic-light', 'classic-modern', 'minimal', 'modern']
+    assert sorted(t['id'] for t in ts) == ['classic-light', 'classic-modern', 'minimal', 'modern', 'q2-z']
     for t in ts:
         assert {a: t[f'cf.{a}'] for a in CLASSIC_THUMB} == CLASSIC_THUMB, t['id']
 
@@ -721,10 +722,10 @@ def test_emit_cf(tmp_path):
 
 # page_list's rows, detail rows and in-page title: 48/64/48 unless a theme sets them (open class).
 def test_page_rows_defaults_and_classic_light():
-    assert [(t['page_row'], t['page_detail'], t['page_title_h']) for t in theme.builtins()] == [(48, 64, 48), (32, 52, 0), (48, 64, 48), (32, 52, 0)]
-    assert [t['page_x'] for t in theme.builtins()] == [O['CF_EDGE'], 20, O['CF_EDGE'], 20]
+    assert [(t['page_row'], t['page_detail'], t['page_title_h']) for t in theme.builtins()] == [(48, 64, 48), (32, 52, 0), (48, 64, 48), (32, 52, 0), (40, 56, 0)]
+    assert [t['page_x'] for t in theme.builtins()] == [O['CF_EDGE'], 20, O['CF_EDGE'], 20, 20]
     # a detail row's boxes; a box holds its font at Classic's sizes (a label draws nothing in a shorter one)
-    assert [(t['page_cap_y'], t['page_cap_h'], t['page_det_y'], t['page_det_h']) for t in theme.builtins()] == [(4, 32, 36, 24), (-1, 28, 28, 18), (4, 32, 36, 24), (-1, 28, 28, 18)]
+    assert [(t['page_cap_y'], t['page_cap_h'], t['page_det_y'], t['page_det_h']) for t in theme.builtins()] == [(4, 32, 36, 24), (-1, 28, 28, 18), (4, 32, 36, 24), (-1, 28, 28, 18), (1, 30, 33, 20)]
     cl = theme.builtins()[1]
     assert cl['page_cap_h'] >= cl['font_px[ROLE_TALL]'] and cl['page_det_h'] >= cl['font_px[ROLE_META]'] and cl['page_row'] >= cl['font_px[ROLE_TITLE]']
     t = resolved('<view name="page"><element name="rows" height="30" detail_height="56" detail_y="30" detail_h="24"/><element name="title" height="0"/></view>')
@@ -750,7 +751,7 @@ def test_page_rows_reject(body, message):
 def test_emit_page_rows(tmp_path):
     theme.emit(theme.builtins(), tmp_path)
     text = (tmp_path/'themes.inc').read_text()
-    assert text.count('.page_row = 48,') == 2 and text.count('.page_detail = 52,') == 2 and text.count('.page_title_h = 0,') == 2 and text.count('.page_cap_y = -1,') == 2
+    assert text.count('.page_row = 48,') == 2 and text.count('.page_detail = 52,') == 2 and text.count('.page_title_h = 0,') == 3 and text.count('.page_cap_y = -1,') == 2
 
 
 TEST = Geometry(name='test', pitch=28)
@@ -871,7 +872,7 @@ def test_theme_level_halves():
 def test_scheme_mode_paper_ink():
     t = resolved('<colorScheme mode="light" light.paper="#ffffff" light.ink="#000000"/>')
     assert {(s['mode'], s['paper'], s['ink']) for s in t['schemes']} == {(1, 0xffffff, 0)}
-    minimal, classic, modern, _ = theme.builtins()
+    minimal, classic, modern, *_ = theme.builtins()
     assert {(s['mode'], s['paper'], s['ink']) for s in minimal['schemes']} == {(0, 0xf4f4f4, 0x161616)}
     assert {(s['mode'], s['paper'], s['ink']) for s in classic['schemes'] if s['sel']} == {(0, 0xffffff, 0)}
     assert (minimal['undeclared'], set0_builtins()[1]['undeclared']) == ([], [])
@@ -1033,7 +1034,7 @@ def test_emit_own_scheme(tmp_path):
 
 
 def test_own_option():
-    m, n, c, _ = theme.builtins()
+    m, n, c, *_ = theme.builtins()
     row_art = own('ROWART', 'Row Art', ('Off', 'On'), ('classic-light-text', 'classic-light'), default=1, preset=1)
     assert n['opts'][-1] == row_art and [o['key'] for o in m['opts'] + c['opts'] if o.get('key')] == ['STATUSBAR', 'SHOWQ2POD', 'STATUSBAR', 'SHOWQ2POD']
     assert theme.geometry(n) == CLASSIC_LIGHT and theme.geometry(n, {'ROWART': 'Off'}) == CLASSIC_LIGHT_TEXT
@@ -1119,15 +1120,16 @@ def test_emit_own_options(tmp_path):
             '    { .key = "HOMELIB", .label = "Library on Home", .names = (const char *const[]){"Off", "On"}, .sets = 0, .n = 2, .def = 1 },\n'
             '    { .key = "ROWPREVIEW", .label = "Row Preview", .names = (const char *const[]){"Off", "On"}, .sets = 0, .n = 2, .def = 1 },\n'
             '    { .key = "ROWART", .label = "Row Art", .names = (const char *const[]){"Off", "On"}, '
-            '.sets = (const unsigned char[]){GEOM_CLASSIC_LIGHT_TEXT, GEOM_CLASSIC_LIGHT}, .n = 2, .def = 1 },\n};') in inc
-    assert inc.index('const theme_key_t theme_keys') > inc.index('enum { GEOM_IPOD, GEOM_CLASSIC_LIGHT, GEOM_CLASSIC_LIGHT_TEXT, GEOM_N };')
-    assert '#define OWN_STATUSBAR 0\n#define OWN_SHOWQ2POD 1\n#define OWN_CLASSIC_LIGHT_ACCENT 2\n#define OWN_HOMELIB 3\n#define OWN_ROWPREVIEW 4\n#define OWN_ROWART 5\n' in inc
+            '.sets = (const unsigned char[]){GEOM_CLASSIC_LIGHT_TEXT, GEOM_CLASSIC_LIGHT}, .n = 2, .def = 1 },\n'
+            '    { .key = "Q2Z_ACCENT", .label = 0, .names = 0, .sets = 0, .n = 10, .def = 9 },\n};') in inc
+    assert inc.index('const theme_key_t theme_keys') > inc.index('enum { GEOM_IPOD, GEOM_CLASSIC_LIGHT, GEOM_Q2_Z, GEOM_CLASSIC_LIGHT_TEXT, GEOM_N };')
+    assert '#define OWN_STATUSBAR 0\n#define OWN_SHOWQ2POD 1\n#define OWN_CLASSIC_LIGHT_ACCENT 2\n#define OWN_HOMELIB 3\n#define OWN_ROWPREVIEW 4\n#define OWN_ROWART 5\n#define OWN_Q2Z_ACCENT 6\n' in inc
 
 
 def test_classic_light_sets_from_its_theme_file():
     """Classic's sets are its theme.xml's: classic_light states every Geometry field (SET0's defaults never reach it),
     classic-light-text extends it. No tool names them."""
-    m, n, c, _ = theme.builtins()
+    m, n, c, *_ = theme.builtins()
     assert theme.sets(n) == {'ipod': SET0, 'classic-light': CLASSIC_LIGHT, 'classic-light-text': CLASSIC_LIGHT_TEXT} and theme.geometry(n) == CLASSIC_LIGHT
     assert theme.sets(m) == theme.sets(c) == {'ipod': SET0} and (m['geoms'], c['geoms']) == ({}, {})
     decl = {e.attrs['name']: e.attrs for e in theme.load(THEMES/'classic-light'/'theme.xml').children
@@ -1222,7 +1224,7 @@ def geom_vals_text(sets):
 
 def test_emit_geom_vals(tmp_path):
     inc = boot_inc(tmp_path, theme.builtins())
-    assert all(s in inc for s in geom_vals_text([SET0, CLASSIC_LIGHT, CLASSIC_LIGHT_TEXT]))
+    assert all(s in inc for s in geom_vals_text([SET0, CLASSIC_LIGHT, Q2_Z, CLASSIC_LIGHT_TEXT]))
     assert ipod.GEOM_VALS[:3] == ('bar', 'set_row', 'set_icon')
     assert [[getattr(g, n) for n in ipod.GEOM_VALS[:3]] for g in (SET0, CLASSIC_LIGHT)] == [[30, 68, 40], [26, 32, 0]]
 
@@ -1250,7 +1252,7 @@ def test_emit_refuses_a_set0_redirect(tmp_path):
 
 
 def test_classic_light_builtin():
-    m, n, c, _ = theme.builtins()
+    m, n, c, *_ = theme.builtins()
     assert (n['id'], n['name'], n['index'], n['geom_set'], n['accent_key'], n['accents']) == ('classic-light', 'Classic', 1, 'classic-light', 'CLASSIC_LIGHT_ACCENT', 0x37f)
     assert n['opts'] == [STATUSBAR, opt('SETTING_TIMETITLE', preset=1), SHOWQ2POD, opt('SETTING_LIGHT', preset=1, keep=2),
                          opt('SETTING_ACCENT', default=9, preset=9, values=0x37f), opt('SETTING_HOME', preset=0), opt('SETTING_SHORTCUT'),
@@ -1262,15 +1264,17 @@ def test_emit_shares_a_theme_s_rows_with_the_one_it_repeats(tmp_path):
     """Classic Modern's schemes are Classic's, so it points at Classic's arrays and adds none."""
     theme.emit(theme.builtins(), tmp_path)
     inc = (tmp_path/'themes.inc').read_text()
-    assert re.findall(r'static const scheme_t (\w+)\[\]', inc) == ['minimal_schemes', 'classic_light_schemes', 'classic_light_light', 'modern_schemes']
-    assert re.findall(r'\.(schemes|light) = (\w+),', inc)[-2:] == [('schemes', 'classic_light_schemes'), ('light', 'classic_light_light')]
+    assert re.findall(r'static const scheme_t (\w+)\[\]', inc) == ['minimal_schemes', 'classic_light_schemes', 'classic_light_light', 'modern_schemes',
+                                                                   'q2_z_schemes']  # Q2 Z's light half is never shown
+    assert re.findall(r'\.(schemes|light) = (\w+),', inc)[-4:] == [('schemes', 'classic_light_schemes'), ('light', 'classic_light_light'),
+                                                                    ('schemes', 'q2_z_schemes'), ('light', 'q2_z_schemes')]
 
 
 def test_classic_modern_builtin():
     """Classic Modern is Classic but for its own pages' and prompts' painters, both looks', the flat volume panel, the
     flat look's Quick Settings ground and Set Date gap, and Home's pane: its pale grey and 17 px caption, with the lock
     screen's page keeping Classic's pane colours. Classic's sets, options and accent key, so a switch is live."""
-    _, n, _, cm = theme.builtins()
+    _, n, _, cm, _ = theme.builtins()
     assert (cm['id'], cm['name'], cm['index']) == ('classic-modern', 'Classic Modern', 3)
     both = list(theme.CHOICES['pages.own.painter']).index('classic-light+flat')
     assert both == list(theme.CHOICES['dialog.confirm.painter']).index('classic-light+flat') == 3  # theme.h: each look a bit
@@ -1286,11 +1290,45 @@ def test_classic_modern_builtin():
     assert theme.geometry(cm) == theme.geometry(n) and theme.theme_keys([cm]) == theme.theme_keys([n])
 
 
+def test_q2_z_builtin(tmp_path):
+    """Q2 Z: Modern's flat screens and Now Playing on a set of its own, a 40 px bar whose title is a header in the thin
+    face at the bar's height (pivot), 40 px rows; the text selection; the firmware's words in lowercase; its own Magenta,
+    the default, in its own tones; every scheme the dark half alone, so no Light Mode row."""
+    _, _, modern, _, z = theme.builtins()
+    assert (z['id'], z['name'], z['index'], z['geom_set'], z['accent_key']) == ('q2-z', 'Q2 Z', 4, 'q2-z', 'Q2Z_ACCENT')
+    g = theme.geometry(z)
+    assert (g.bar, g.bar_px, g.pivot, g.pitch, g.set_row, g.toolbar, g.np_ipod) == (40, 40, 1, 40, 40, 0, 0)
+    thin, sel = theme.FONTS and list(theme.CHOICES['bar.title.font']).index('thin'), list(theme.CHOICES['list.selection.painter']).index('text')
+    assert (z['font[ROLE_BAR]'], z['font_px[ROLE_BAR]'], z['font[ROLE_TITLE]'], z['font[ROLE_HOME]'], z['font[ROLE_NP]']) == (thin, 40, thin, thin, thin)
+    assert z['painter[PAINT_SELECTION]'] == sel and (z['caps_mark'], z['caps_home'], z['caps_list']) == (2, 2, 2)
+    for k in ('painter[PAINT_PAGES]', 'painter[PAINT_CONFIRM]', 'painter[PAINT_VOLUME]', 'np_layout', 'art_final'):
+        assert z[k] == modern[k], k  # the flat look's screens, unchanged
+    names = theme.scheme_names(z)
+    assert names[z['opts'][3]['def']] == names[z['opts'][3]['preset']] == 'magenta' and len(z['schemes']) == 10
+    magenta = z['schemes'][names.index('magenta')]
+    assert (magenta['label'], magenta['tones'], magenta['sel_text']) == ('Magenta', (0xff0097, 0xff0097, 0xff33ac, 0xff33ac, 0xff33ac), 0xff1aa6)
+    assert all(s['mode'] == 2 and s['sel_text'] for i, s in enumerate(z['schemes']) if z['accents'] >> i & 1)
+    assert 'SETTING_LIGHT' in z['undeclared'] and 'SETTING_ROUNDED' in z['undeclared']
+    inc = boot_inc(tmp_path, theme.builtins())
+    assert '{ .tones = (const unsigned[]){0xff0097, 0xff0097, 0xff33ac, 0xff33ac, 0xff33ac}, ' in inc and '.label = "Magenta" }' in inc
+    z_rows = inc.split('static const scheme_t q2_z_schemes[] = {\n')[1].split('};')[0]
+    assert z_rows.count('.paper = 0x000000, .ink = 0xffffff') == 10 and 'q2_z_light' not in inc  # the dark rows, serving both
+    assert inc.count('accents[') > 0 and '.name = "Q2 Z",' in inc
+
+
+@pytest.mark.parametrize('body, message', [
+    ('<colorScheme name="dusk" base="plum" label="Dusk" tones="#ff0097 #ff0097"/>', 't.xml:1: dusk: tones: expected five #rrggbb (top, bottom, light, red, highlight)'),
+    ('<colorScheme name="cobalt" tones="#ff0097 #ff0097 #ff33ac #ff33ac #ff33ac"/>', 't.xml:1: unknown key scheme.tones'),
+])
+def test_an_own_scheme_s_tones_reject(body, message):
+    assert error(resolved, body) == message
+
+
 def test_emit_classic_light_sets(tmp_path):
     inc = boot_inc(tmp_path, theme.builtins())
-    assert 'enum { GEOM_IPOD, GEOM_CLASSIC_LIGHT, GEOM_CLASSIC_LIGHT_TEXT, GEOM_N };' in inc and '#define CLIENT_H_MAX 294' in inc
-    assert 'const char *const geom_names[GEOM_N] = {"ipod", "classic-light", "classic-light-text"};' in inc
-    assert re.findall(r'\.geom = (\d+)', inc) == ['0', '1', '0', '1'] and '.accent_slot = &st.own[2],' in inc
+    assert 'enum { GEOM_IPOD, GEOM_CLASSIC_LIGHT, GEOM_Q2_Z, GEOM_CLASSIC_LIGHT_TEXT, GEOM_N };' in inc and '#define CLIENT_H_MAX 294' in inc
+    assert 'const char *const geom_names[GEOM_N] = {"ipod", "classic-light", "q2-z", "classic-light-text"};' in inc
+    assert re.findall(r'\.geom = (\d+)', inc) == ['0', '1', '0', '1', '2'] and '.accent_slot = &st.own[2],' in inc
 
 
 def test_rows_key():
@@ -1342,7 +1380,7 @@ def test_motion_classic_light(tmp_path):
     light = theme.builtins()[1]
     assert {k.field: light[k.field] for k in theme.SCHEMA.values() if k.cls == 'motion'} == MOTION_CLASSIC_LIGHT
     inc = boot_inc(tmp_path, theme.builtins())
-    assert inc.count('.motion[MOTION_PAGE].hint = 0,') == 4  # every theme's pages: the asset's own
+    assert inc.count('.motion[MOTION_PAGE].hint = 0,') == 5  # every theme's pages: the asset's own
     assert '.hint = "' not in inc  # no window animates beyond stock's own slide: no push, no dialog fade
 
 

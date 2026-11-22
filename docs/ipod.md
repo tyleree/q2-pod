@@ -836,15 +836,15 @@ Now Playing uses 24 px monochrome control glyphs on 28 px canvases inside the ex
 
 ### Theme
 
-The Theme list shows Minimal, Modern, Classic, Classic Modern (`theme_rows`), whatever their stored numbers.
+The Theme list shows Minimal, Modern, Classic, Classic Modern, Q2 Z (`theme_rows`), whatever their stored numbers.
 **Theme: Minimal** (`THEME=0`, the default) is the look described above. **Theme: Classic**
 (`1`) is a light iPod look with a dark half, on its own layout (below). **Theme: Modern** (`2`)
 is 1.6.5's Classic on Minimal's layout (below). **Theme: Classic Modern** (`3`) is Classic with
-Modern's flat screens (below). A stored `THEME=4` or past reads as Minimal.
+Modern's flat screens (below). **Theme: Q2 Z** (`4`) is big thin lowercase type on black, on its own layout (below). A stored `THEME=5` or past reads as Minimal.
 Choosing Classic or Classic Modern from Minimal or Modern, or the other way, asks "Restart to apply?", because Classic lays its rows out
 from its own geometry sets ([internals.md](internals.md#themes)): Cancel changes nothing; OK
 saves the theme and its preset ([Display settings](#display-settings)) and restarts the Q2.
-Classic and Classic Modern share their sets, so a change between them applies at once, as between Minimal and Modern. Status Bar's values stay Theme, Minimal, Modern and Classic.
+Classic and Classic Modern share their sets, so a change between them applies at once, as between Minimal and Modern. Q2 Z has a set of its own, so a pick to or from it always asks. Status Bar's values stay Theme, Minimal, Modern and Classic: Q2 Z's header is its own layout's bar, which another theme can't take without a restart.
 
 Corners is Minimal's and Modern's setting, Square until chosen; Classic's covers are always square. Every theme insets an album grid's cover inside the tile (`album_children`), so the selection card frames it; Classic's and Modern's card is in the accent's colour, Classic's square.
 
@@ -898,6 +898,10 @@ photo pages' own drawing) keeps Minimal's layout under this theme's colours and 
 - **Streaming's Now Playing.** Spotify and Internet Radio take local Now Playing's places: the 178 px art at x 16, y 22, turned over its reflection; the title, artist and album at x 206 from y 38 (34 and 62 under it); the 20-pixel bar from x 66 to 309 at y 245 with the 21 px times beside it, narrowed as local Now Playing's for a long track. Spotify's bar shows its position and the scrub's diamond; the page's name and play state are in the title bar. Internet Radio plays as an album: a generated station cover, the station, artist and song, the stream where "3 of 12" sits, the heart at x 300, y 165, and a bar that is always full with the running time on its left; the wheel stays the volume.
 - **Info.** Now Playing's third page is a list of nine rows in Classic's face, each name on the left and its value on the right in grey, a long value ending in an ellipsis: 20 px rows from under the top row to the page dots, names 100 px wide from x 20, values to x 355.
 - **Its font.** The face is a subset of TeX Gyre Heros Bold (`assets/fonts`, GUST Font License), a play mark added at U+25B6 (View Queue's, [Queue menu](internals.md#queue-menu)), renamed and shipped as `fonts/classic-light.ttf`; `assets/fonts/README-classic-light.txt` says what changed and where the original is. Where it lacks a character, `fonts/bold.ttf` stands in ([Home](#home)).
+
+#### Q2 Z
+
+**Theme: Q2 Z** is big thin lowercase type on black. The status bar is 40 px tall and the page's title fills it, left, in a thin typeface (Selawik Light, `fonts/thin.ttf`), a long one running on to the icons at the right, cut there with no ellipsis; the battery, Wi-Fi, Bluetooth and play state stay in their row at the right. With Time in Title off (its preset) the clock shows on a page with no title. Lists are 40 px rows of 26 px thin text (a song's two lines 56 px, its second line in the system face), with nothing filled behind the chosen row: its text is the accent's and every other row's grey, so the wheel's place shows by its ink alone; a touch, which hides the selection, leaves every row white. The firmware's own words are in lowercase, Home's rows, the screens' titles and the Settings and Library rows ("now playing", "settings", "albums", "theme: q2 z"), never a song's, album's, artist's, file's or playlist's name, which keep their own spelling; letters outside A to Z are left as they are. Its accent (`Q2Z_ACCENT`) is its own **Magenta** (`#ff0097`) by default, or Graphite (white), Crimson, Tidal, Cobalt, Tangerine or Green, each lighting the chosen row's text, the progress and the flat screens. It is black in either half and has no Light Mode row. Quick Settings, the slider pages, Update Library and USB mode, the prompts, Set Date and Set Time, the volume panel, the hold menu, Home's pane and Now Playing's More, play mode and heart are Modern's flat screens ([Modern](#modern)), and Now Playing is Modern's, its title in the thin face. Battery offers Icon, Percent and Percent Inside, as Classic's bar does.
 
 #### Classic Modern
 

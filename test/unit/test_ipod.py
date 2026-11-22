@@ -16,6 +16,7 @@ import ipod
 import theme
 
 CLASSIC_LIGHT, CLASSIC_LIGHT_TEXT = (theme.sets(theme.builtins()[1])[s] for s in ('classic-light', 'classic-light-text'))  # Classic's sets: its theme.xml
+Q2_Z = theme.geometry(theme.builtins()[4])  # Q2 Z's pivot bar: its theme.xml
 
 
 def w(name, *children, kind='view', at=None, **props):
@@ -840,6 +841,30 @@ def test_classic_light_status_bar_has_a_title_and_no_idle_mark():
         assert {n[name][2][f'style:{s}:{k}'] for s in ('normal', 'disable', 'focused') for k in ('font_size', 'font_name')} \
             == {str(CLASSIC_LIGHT.bar_px), ipod.CLASSIC_LIGHT_FONT_NAME}
     assert n['view_left'][3] == [] and n['view_left'][2]['children_layout'].endswith(f'xm={m["inset"]},s={ipod.inc("STATUS_GAP")})')
+
+
+# Q2 Z's bar (pivot): the title the page's header, in the thin face at the bar's whole height, its caps centred as
+# Classic's; cut at its box's end, no ellipsis, as a header runs on. The clock is stock's 16 px, centred, as the built-in
+# bar's. While the clock makes way the title widens to EQ's box (np_bar.c bar_title): on a pivot bar that is parked where
+# the icons' room starts, not the clock's, so the title runs on to them.
+def test_a_pivot_bar_s_title_is_a_header_running_on_to_the_icons():
+    root = bar(); ipod.status_bar(root, g=Q2_Z); n = named(root)
+    assert (Q2_Z.bar, Q2_Z.bar_px, Q2_Z.pivot, CLASSIC_LIGHT.pivot) == (40, 40, 1, 0)
+    assert ipod.bar_face(Q2_Z) == ipod.THIN_FONT_SRC and ipod.bar_face(CLASSIC_LIGHT) == ipod.CLASSIC_LIGHT_FONT_SRC
+    m = ipod.status_metrics(Q2_Z, ipod.THIN_FONT_SRC)
+    title, clock = n['label_title'], n['label_clock']
+    assert title[1] == m['title'] and title[2]['ellipses'] == 'false' and 2 * m['cap_top'] + m['cap'] in (Q2_Z.bar - 3, Q2_Z.bar - 2)
+    assert {title[2][f'style:{s}:{k}'] for s in ('normal', 'disable', 'focused') for k in ('font_size', 'font_name')} == {'40', ipod.THIN_FONT_NAME}
+    assert clock[1] == m['clock'] == [(375 - ipod.CLOCK_MIN) // 2, 0, ipod.CLOCK_MIN, 40]
+    assert clock[2]['style:normal:font_size'] == '16' and not any(k.endswith('font_name') for k in clock[2])
+    assert m['inset'] >= ipod.corner_inset(m['cap_top'])  # the title's ink clear of the glass
+    eq = n['label_eq']
+    reach = ipod.BT_REACH + 2 * ipod.inc('STATUS_GAP') + n['img_wifi'][1][2] + 1 + Q2_Z.batt_w + ipod.inc('BATT_NUB_W')
+    x = n['view_right'][1][0] + eq[1][0]
+    assert eq[2]['floating'] == 'true' and x == 375 - Q2_Z.bar_right - reach and x - title[1][0] > title[1][2] + 100
+    # Classic's own: the same title and clock, in its face, its clock in it
+    c = named((lambda r: (ipod.status_bar(r, g=CLASSIC_LIGHT), r)[1])(bar()))
+    assert c['label_title'][2]['ellipses'] == 'true' and c['label_clock'][2]['style:normal:font_name'] == ipod.CLASSIC_LIGHT_FONT_NAME
 
 
 # Right of the centred clock, left to right: Bluetooth, Wi-Fi, the play state and the battery, the battery body
